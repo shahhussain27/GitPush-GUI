@@ -1,6 +1,6 @@
-appId: com.example.nextron
-productName: My Nextron App
-copyright: Copyright © 2018 Yoshihide Shiono
+appId: com.example.gitpushgui
+productName: GitPush GUI
+copyright: Copyright © 2026 Mirza Shah Hussain
 directories:
   output: dist
   buildResources: resources
