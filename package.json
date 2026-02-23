@@ -2,7 +2,7 @@
   "private": true,
   "name": "gitpush-gui",
   "description": "A simple GUI for GitPush",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "repository": {
     "type": "git",
     "url": "https://github.com/shahhussain27/GitPush-GUI.git"
