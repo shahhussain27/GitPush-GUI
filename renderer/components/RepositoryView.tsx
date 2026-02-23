@@ -2,6 +2,28 @@ import React, { useState, useEffect } from 'react'
 import GitHubModal from './GitHubModal'
 import RemoteUpdateModal from './RemoteUpdateModal'
 import CollaborationView from './CollaborationView'
+import { 
+  GitBranch, 
+  Download, 
+  Upload, 
+  Save, 
+  Activity, 
+  Boxes, 
+  FileCode, 
+  Globe, 
+  Users, 
+  AlertCircle, 
+  CheckCircle, 
+  Wand2,
+  RefreshCw,
+  Tractor,
+  HardDrive,
+  Rocket
+} from 'lucide-react'
+import { Button } from "./ui/button"
+import { Badge } from "./ui/badge"
+import { Separator } from "./ui/separator"
+import { cn } from "@/lib/utils"
 
 interface RepositoryViewProps {
   currentPath: string
@@ -35,7 +57,6 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
   const [commitMessage, setCommitMessage] = useState('')
   const [gitignoreContent, setGitignoreContent] = useState('')
   const [isLFSInstalled, setIsLFSInstalled] = useState(false)
-  const [lfsStatus, setLfsStatus] = useState('')
   const [remoteUrl, setRemoteUrl] = useState('')
   const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false)
   const [hasOrigin, setHasOrigin] = useState(false)
@@ -95,21 +116,25 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
 
   if (!isRepo) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center space-y-6">
-        <div className="bg-gray-900 p-10 rounded-2xl border border-gray-800 shadow-2xl max-w-lg">
-          <div className="text-5xl mb-6">🛠️</div>
-          <h2 className="text-2xl font-bold text-white mb-3">Setup Repository</h2>
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6">
+        <div className="bg-gray-900 p-12 rounded-3xl border border-gray-800 shadow-2xl max-w-lg animate-in zoom-in-95 duration-500">
+          <div className="bg-blue-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Tractor className="size-10 text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-3">Initialize Workspace</h2>
           <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-            This folder is not a Git repository. To start versioning your files and pushing to the cloud, you need to initialize it.
+            This folder isn't under version control yet. Transform it into a Git repository to start tracking changes and collaborate.
           </p>
-          <div className="flex flex-col gap-3">
-            <button 
+          <div className="flex flex-col gap-4">
+            <Button 
+              size="lg"
               onClick={onInit}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg font-bold transition-all shadow-lg shadow-blue-900/40"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold h-12 shadow-lg shadow-blue-900/40 gap-2"
             >
-              Initialize Git Repository
-            </button>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest mt-2">Runs: git init</p>
+              <GitBranch className="size-5" />
+              Init Git Repository
+            </Button>
+            <p className="text-[10px] text-gray-600 font-mono tracking-tighter">EXECUTE: git init</p>
           </div>
         </div>
       </div>
@@ -120,46 +145,55 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
     <div className="relative space-y-6 max-w-6xl mx-auto">
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-50 bg-gray-950/60 backdrop-blur-[2px] flex items-center justify-center rounded-2xl animate-in fade-in duration-200">
-          <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-2xl flex flex-col items-center">
-            <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-            <p className="text-white font-bold">Processing Git Command...</p>
-            <p className="text-gray-500 text-xs mt-2">Check the console below for details</p>
+        <div className="fixed inset-0 z-[1000] bg-gray-950/70 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-300">
+          <div className="bg-gray-900 border border-gray-800 p-10 rounded-3xl shadow-2xl flex flex-col items-center max-w-xs text-center">
+            <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-blue-500/10 border-t-blue-500 rounded-full animate-spin"></div>
+              <Activity className="size-6 text-blue-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+            </div>
+            <p className="text-white font-black text-lg">Syncing Git</p>
+            <p className="text-gray-500 text-xs mt-2 uppercase tracking-widest font-bold">Please wait...</p>
           </div>
         </div>
       )}
 
       {/* Error / Smart Fix System */}
       {currentError && (
-        <div className="bg-red-500/10 border border-red-500/20 p-6 rounded-xl animate-in slide-in-from-top duration-300">
-          <div className="flex items-start gap-4">
-            <div className="bg-red-500/20 p-2 rounded-lg">
-              <span className="text-xl">⚠️</span>
+        <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl animate-in slide-in-from-top-4 duration-500 overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-4 opacity-5">
+            <AlertCircle className="size-24 text-red-500" />
+          </div>
+          <div className="flex items-start gap-5 relative z-10">
+            <div className="bg-red-500 p-2.5 rounded-xl shadow-lg shadow-red-900/20 shrink-0">
+              <AlertCircle className="size-6 text-white" />
             </div>
             <div className="flex-1">
-              <h3 className="text-red-400 font-bold mb-1">Git Error Detected</h3>
-              <p className="text-gray-300 text-sm leading-relaxed mb-4">
+              <h3 className="text-red-400 font-black text-lg mb-1">Git Error Encountered</h3>
+              <p className="text-gray-300 text-sm leading-relaxed mb-6 font-medium">
                 {currentError.message}
               </p>
               
               {currentError.safeFixAvailable && currentError.fixCommand && (
-                <div className="flex flex-col gap-3">
-                  <div className="bg-black/40 p-3 rounded-lg border border-gray-800 font-mono text-xs text-green-400">
-                    Suggested Fix: {currentError.fixCommand}
+                <div className="space-y-4">
+                  <div className="bg-gray-950 p-4 rounded-xl border border-gray-800/50 font-mono text-[11px] text-blue-400 flex items-center gap-3">
+                    <span className="text-gray-600 shrink-0">$</span>
+                    {currentError.fixCommand}
                   </div>
-                  <button 
+                  <Button 
                     onClick={() => onApplyFix?.(currentError.fixCommand)}
-                    className="w-fit px-6 py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg text-sm font-bold transition-all shadow-lg shadow-green-900/20 flex items-center gap-2"
+                    className="bg-green-600 hover:bg-green-500 text-white font-bold gap-2 shadow-lg shadow-green-900/20"
                   >
-                    <span>🛠️</span> Fix Automatically
-                  </button>
+                    <Wand2 className="size-4" />
+                    Apply Smart Fix
+                  </Button>
                 </div>
               )}
 
               {currentError.requiresUserDecision && (
-                <p className="text-xs text-gray-500 italic mt-2">
-                  ℹ️ This error requires manual intervention. Check the "Status & Commit" tab or technical logs for more info.
-                </p>
+                <div className="flex items-center gap-2 text-[10px] text-amber-500 font-bold uppercase tracking-widest mt-4">
+                  <Activity className="size-3" />
+                  Manual intervention required
+                </div>
               )}
             </div>
           </div>
@@ -167,144 +201,193 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
       )}
 
       {/* Header Info */}
-      <div className="flex justify-between items-center bg-gray-900/50 p-5 rounded-xl border border-gray-800 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
-            <span className="text-xl">🌿</span>
-          </div>
-          <div>
-            <h2 className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-0.5">Active Branch</h2>
-            <p className="text-lg font-mono font-bold text-white">
-              {branch || 'master'}
-            </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between bg-gray-900/40 p-5 rounded-2xl border border-gray-800/50 backdrop-blur-xl group hover:border-blue-500/30 transition-all">
+          <div className="flex items-center gap-4">
+            <div className="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20 group-hover:scale-110 transition-transform">
+              <GitBranch className="size-6 text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Active Development Branch</h2>
+              <div className="flex items-center gap-2">
+                <p className="text-xl font-mono font-black text-white">
+                  {branch || 'master'}
+                </p>
+                <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-400 font-black px-1.5 h-4">LOCAL</Badge>
+              </div>
+            </div>
           </div>
         </div>
+
         <div className="flex gap-3">
-          <button onClick={onPull} className={`px-4 py-2 rounded-lg text-sm transition-all border font-medium flex items-center gap-2 ${
-            isBehind 
-            ? 'bg-amber-600 hover:bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-900/30' 
-            : 'bg-gray-800 hover:bg-gray-700 border-gray-700'
-          }`}>
-            <span>⬇️</span> {isBehind ? 'Pull & Rebase Required' : 'Pull'}
-          </button>
-          <button 
+          <Button 
+            variant="outline"
+            onClick={onPull} 
+            className={cn(
+              "flex-1 h-full rounded-2xl text-sm border-2 font-black gap-2 transition-all",
+              isBehind 
+                ? 'bg-amber-600/10 hover:bg-amber-600/20 border-amber-500 text-amber-500 animate-pulse' 
+                : 'bg-gray-900/40 hover:bg-gray-800 border-gray-800 text-gray-300'
+            )}
+          >
+            <Download className="size-5" />
+            {isBehind ? 'Pull Required' : 'Sync Pull'}
+          </Button>
+          <Button 
             disabled={isBehind}
             onClick={onPush} 
-            className={`px-5 py-2 rounded-lg text-sm transition-all font-bold shadow-lg flex items-center gap-2 ${
+            className={cn(
+              "flex-1 h-full rounded-2xl text-sm font-black gap-2 shadow-xl transition-all",
               isBehind 
-              ? 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700' 
-              : 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/30'
-            }`}
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed grayscale' 
+                : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 text-white'
+            )}
           >
-            <span>⬆️</span> Push to Remote
-          </button>
+            <Upload className="size-5" />
+            Push Changes
+          </Button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-800 gap-8 px-2">
-        <TabButton active={activeTab === 'status'} onClick={() => setActiveTab('status')} label="Status & Commit" />
-        <TabButton active={activeTab === 'lfs'} onClick={() => setActiveTab('lfs')} label="Git LFS" />
-        <TabButton active={activeTab === 'gitignore'} onClick={() => setActiveTab('gitignore')} label=".gitignore" />
-        <TabButton active={activeTab === 'remotes'} onClick={() => setActiveTab('remotes')} label="Remotes" />
-        <TabButton active={activeTab === 'collaboration'} onClick={() => setActiveTab('collaboration')} label="Collaboration" />
+      <div className="flex border-b border-gray-800/50 gap-10 px-4 overflow-x-auto custom-scrollbar no-scrollbar">
+        <TabButton active={activeTab === 'status'} onClick={() => setActiveTab('status')} label="Status & Commit" icon={<Activity className="size-4" />} />
+        <TabButton active={activeTab === 'lfs'} onClick={() => setActiveTab('lfs')} label="Git LFS" icon={<Boxes className="size-4" />} />
+        <TabButton active={activeTab === 'gitignore'} onClick={() => setActiveTab('gitignore')} label=".gitignore" icon={<FileCode className="size-4" />} />
+        <TabButton active={activeTab === 'remotes'} onClick={() => setActiveTab('remotes')} label="Remotes" icon={<Globe className="size-4" />} />
+        <TabButton active={activeTab === 'collaboration'} onClick={() => setActiveTab('collaboration')} label="Collaboration" icon={<Users className="size-4" />} />
       </div>
 
-      <div className="min-h-[400px]">
+      <div className="min-h-[450px]">
         {activeTab === 'status' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
-            <div className="lg:col-span-2 bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col shadow-xl">
-              <div className="px-4 py-3 bg-gray-800/30 border-b border-gray-800 flex justify-between items-center">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Changes</span>
-                <span className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/30">Auto-refresh: 5s</span>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="lg:col-span-2 bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden flex flex-col shadow-2xl relative">
+              <div className="px-6 py-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800/50 flex justify-between items-center z-10 sticky top-0">
+                <div className="flex items-center gap-2">
+                  <Activity className="size-4 text-blue-500" />
+                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Working Directory Status</span>
+                </div>
+                <div className="flex items-center gap-2">
+                   <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                   <span className="text-[9px] text-blue-400 font-black uppercase">Live Monitoring</span>
+                </div>
               </div>
-              <div className="p-4 font-mono text-xs text-gray-300 overflow-auto bg-gray-950/20 h-[350px]">
+              <div className="p-6 font-mono text-xs text-gray-300 overflow-auto bg-gray-950/30 h-[400px] custom-scrollbar selection:bg-blue-500/30">
                 {status ? (
                   <pre className="whitespace-pre-wrap leading-relaxed">{status}</pre>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-600">
-                    <span className="text-3xl mb-2">✨</span>
-                    <p>Clean working tree</p>
+                  <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                    <div className="bg-gray-800/30 p-6 rounded-full">
+                      <CheckCircle className="size-12 text-gray-700" />
+                    </div>
+                    <div>
+                      <h4 className="text-white font-bold">Nothing to commit</h4>
+                      <p className="text-gray-500 text-[10px] uppercase tracking-tighter mt-1">Working tree is completely clean</p>
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between shadow-xl">
+            <div className="bg-gray-900 rounded-3xl border border-gray-800 p-8 flex flex-col justify-between shadow-2xl">
               <div>
-                <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                  <span className="text-green-500">💾</span> Commit Changes
+                <h3 className="text-sm font-black text-white mb-6 flex items-center gap-3">
+                  <div className="bg-green-500/20 p-2 rounded-lg">
+                    <Save className="size-5 text-green-500" />
+                  </div>
+                  Snap Status
                 </h3>
-                <textarea 
-                  value={commitMessage}
-                  onChange={(e) => setCommitMessage(e.target.value)}
-                  placeholder="What did you change? (e.g. Added login screen)"
-                  className="w-full h-48 bg-gray-800/50 border border-gray-700 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none resize-none mb-4 transition-all placeholder:text-gray-600"
-                />
+                <div className="relative">
+                  <textarea 
+                    value={commitMessage}
+                    onChange={(e) => setCommitMessage(e.target.value)}
+                    placeholder="Describe your progress..."
+                    className="w-full h-52 bg-gray-950/50 border border-gray-700/50 rounded-2xl p-5 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 outline-none resize-none mb-4 transition-all placeholder:text-gray-700 font-medium text-white scrollbar-hide"
+                  />
+                  <div className="absolute bottom-6 right-4 text-[10px] font-bold text-gray-600">
+                    {commitMessage.length} chars
+                  </div>
+                </div>
               </div>
-              <div className="space-y-3">
-                <button 
+              <div className="space-y-4">
+                <Button 
                   disabled={!commitMessage}
                   onClick={() => {
                     onCommit(commitMessage)
                     setCommitMessage('')
                   }}
-                  className={`w-full py-3 rounded-xl font-bold transition-all text-sm flex items-center justify-center gap-2 ${
+                  className={cn(
+                    "w-full h-12 rounded-2xl font-black transition-all gap-2 text-sm shadow-lg",
                     commitMessage 
-                    ? 'bg-green-600 hover:bg-green-500 text-white shadow-lg shadow-green-900/30' 
-                    : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
-                  }`}
+                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20' 
+                      : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
+                  )}
                 >
-                  🚀 Commit and Stage
-                </button>
-                <p className="text-[10px] text-center text-gray-500">Stages all files (.) before committing</p>
+                  <Rocket className="size-4" />
+                  Commit & Record
+                </Button>
+                <div className="flex items-center justify-center gap-2 text-[9px] text-gray-500 font-bold uppercase tracking-widest text-center px-4">
+                  <Separator className="flex-1 bg-gray-800" />
+                  <span>Runs: git add . && git commit</span>
+                  <Separator className="flex-1 bg-gray-800" />
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'lfs' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 shadow-xl animate-in fade-in duration-300">
-            <div className="flex items-start gap-6 max-w-3xl">
-              <div className="text-4xl">📦</div>
+          <div className="bg-gray-900 rounded-3xl border border-gray-800 p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-hidden relative">
+            <div className="absolute -top-10 -right-10 opacity-5 scale-150 rotate-12">
+               <Boxes className="size-64 text-blue-500" />
+            </div>
+            <div className="flex items-start gap-8 max-w-3xl relative z-10">
+              <div className="bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20 shadow-xl">
+                <Boxes className="size-10 text-blue-400" />
+              </div>
               <div>
-                <h3 className="text-xl font-bold text-white mb-2">Git Large File Storage (LFS)</h3>
-                <p className="text-gray-400 text-sm mb-6 leading-relaxed">
-                  Git LFS replaces large files such as audio samples, videos, datasets, and graphics with text pointers 
-                  inside Git, while storing the file contents on a remote server. Usually recommended for files &gt;50MB.
+                <h3 className="text-2xl font-black text-white mb-3">Git Large File Storage</h3>
+                <p className="text-gray-400 text-sm mb-8 leading-relaxed font-medium">
+                  Git LFS replaces large files such as audio samples, videos, and datasets with text pointers 
+                  inside Git, storing contents on a remote server. Recommended for files &gt;50MB.
                 </p>
                 
                 {!isLFSInstalled ? (
-                  <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg text-red-400 text-sm mb-6 flex items-center gap-3">
-                    <span>⚠️</span> Git LFS is not installed on this system or project.
+                  <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-2xl text-red-400 text-xs mb-8 flex items-center gap-4 font-bold uppercase tracking-widest">
+                    <AlertCircle className="size-5" />
+                    System Check: Git LFS NOT detected
                   </div>
                 ) : (
-                  <div className="bg-green-500/10 border border-green-500/20 p-4 rounded-lg text-green-400 text-sm mb-6 flex items-center gap-3">
-                    <span>✅</span> Git LFS is initialized for this project.
+                  <div className="bg-green-500/10 border border-green-500/20 p-5 rounded-2xl text-green-400 text-xs mb-8 flex items-center gap-4 font-bold uppercase tracking-widest">
+                    <CheckCircle className="size-5" />
+                    System Check: LFS Active and Ready
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button 
+                  <Button 
+                    variant="outline"
                     onClick={async () => {
                       await window.ipc.invoke('lfs:install')
                       checkLFS()
                     }}
-                    className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-bold border border-gray-700 transition-all"
+                    className="h-12 bg-gray-900/50 hover:bg-gray-800 border-2 border-gray-800 rounded-2xl text-sm font-black transition-all gap-2"
                   >
+                    <Download className="size-4" />
                     Initialize LFS
-                  </button>
-                  <button 
+                  </Button>
+                  <Button 
                     onClick={() => {
                       const pattern = prompt('Enter file pattern to track (e.g. *.png, assets/*):')
                       if (pattern) {
                         window.ipc.invoke('lfs:track', pattern)
                       }
                     }}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-bold transition-all shadow-lg shadow-blue-900/20"
+                    className="h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-sm font-black transition-all shadow-xl shadow-blue-900/20 gap-2"
                   >
-                    Track Patterns (*.psd, *.zip)
-                  </button>
+                    <Activity className="size-4" />
+                    Track Patterns
+                  </Button>
                 </div>
               </div>
             </div>
@@ -312,130 +395,139 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
         )}
 
         {activeTab === 'gitignore' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden flex flex-col shadow-xl animate-in fade-in duration-300">
-            <div className="px-6 py-3 bg-gray-800/30 border-b border-gray-800 flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Edit .gitignore</span>
-              <div className="flex gap-2">
+          <div className="bg-gray-900 rounded-3xl border border-gray-800 overflow-hidden flex flex-col shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="px-8 py-4 bg-gray-900/80 backdrop-blur-md border-b border-gray-800/50 flex justify-between items-center z-10 sticky top-0">
+              <div className="flex items-center gap-3">
+                <FileCode className="size-5 text-gray-400" />
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Exclusion manifests (.gitignore)</span>
+              </div>
+              <div className="flex gap-3">
                 <select 
                   onChange={(e) => generateGitignore(e.target.value)}
-                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-gray-300 outline-none focus:ring-1 focus:ring-blue-500"
+                  className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-1.5 text-[10px] text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-black uppercase tracking-tighter"
                   defaultValue=""
                 >
-                  <option value="" disabled>Generate from template...</option>
-                  <option value="web">Web (Node/Next)</option>
-                  <option value="unity">Unity</option>
-                  <option value="generic">Generic</option>
+                  <option value="" disabled>Standard Templates</option>
+                  <option value="web">Next.js / Node.js</option>
+                  <option value="unity">Unity / Game Dev</option>
+                  <option value="generic">Minimal / Generic</option>
                 </select>
-                <button 
+                <Button 
+                  size="sm"
                   onClick={saveGitignore}
-                  className="bg-green-600 hover:bg-green-500 text-white px-3 py-1 rounded text-xs font-bold transition-all"
+                  className="bg-green-600 hover:bg-green-500 text-white font-black text-[10px] rounded-xl px-5 uppercase tracking-widest shadow-lg shadow-green-900/20"
                 >
-                  Save
-                </button>
+                  Apply Changes
+                </Button>
               </div>
             </div>
             <textarea 
               value={gitignoreContent}
               onChange={(e) => setGitignoreContent(e.target.value)}
-              className="w-full h-[400px] bg-gray-950/50 p-6 font-mono text-xs text-gray-300 outline-none resize-none leading-relaxed"
+              className="w-full h-[450px] bg-gray-950/40 p-8 font-mono text-xs text-gray-300 outline-none resize-none leading-relaxed custom-scrollbar selection:bg-blue-500/30"
               spellCheck={false}
             />
           </div>
         )}
 
         {activeTab === 'remotes' && (
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 shadow-xl animate-in fade-in duration-300">
-            <h3 className="text-xl font-bold text-white mb-4">Remote Management</h3>
+          <div className="bg-gray-900 rounded-3xl border border-gray-800 p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center gap-3 mb-8">
+              <Globe className="size-6 text-blue-500" />
+              <h3 className="text-xl font-black text-white">Upstream Control</h3>
+            </div>
             
             {hasOrigin ? (
-              <div className="space-y-6">
-                <div className="bg-blue-600/10 border border-blue-600/20 p-6 rounded-xl flex justify-between items-center">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-600/20 p-3 rounded-lg">
-                      <span className="text-xl">🌍</span>
+              <div className="space-y-8">
+                <div className="bg-blue-600/5 border border-blue-600/10 p-8 rounded-3xl flex justify-between items-center relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform duration-700">
+                    <Globe className="size-20 text-blue-500" />
+                  </div>
+                  <div className="flex items-center gap-6 relative z-10">
+                    <div className="bg-blue-600 p-4 rounded-2xl shadow-xl shadow-blue-900/20">
+                      <Globe className="size-6 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Current Remote: origin</h4>
-                      <p className="text-sm font-mono text-white">{originUrl}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Primary Remote</h4>
+                        <Badge className="bg-blue-500/20 text-blue-400 border-none text-[8px] font-black h-4 px-1.5 uppercase tracking-tighter">origin</Badge>
+                      </div>
+                      <p className="text-lg font-mono font-bold text-white tracking-tight">{originUrl}</p>
                     </div>
                   </div>
-                  <button 
+                  <Button 
+                    variant="ghost"
                     onClick={async () => {
                       if (confirm('Are you sure you want to remove this remote?')) {
                         onRemoveRemote?.('origin')
                         await checkRemotes()
                       }
                     }}
-                    className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-xs font-bold transition-all border border-red-500/30"
+                    className="relative z-10 px-6 h-12 bg-red-600/10 hover:bg-red-600/20 text-red-400 rounded-2xl text-xs font-black transition-all border border-red-500/20 uppercase tracking-widest"
                   >
-                    🗑️ Remove & Reset
-                  </button>
+                    Disconnect
+                  </Button>
                 </div>
                 
-                <div className="bg-gray-950/50 rounded-xl p-4 border border-gray-800 font-mono text-xs text-blue-400">
-                   <pre className="whitespace-pre-wrap leading-relaxed">
-                     {/* Full remote details */}
+                <div className="bg-gray-950/50 rounded-2xl p-6 border border-gray-800/50 font-mono text-xs text-gray-400 flex flex-col gap-4">
+                   <div className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-600 tracking-[0.2em]">
+                     <Activity className="size-3" /> Raw Transport Details
+                   </div>
+                   <pre className="whitespace-pre-wrap leading-relaxed opacity-60">
                      {remotes}
                    </pre>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Add New Remote</h4>
-                  <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-lg mb-4">
-                    <p className="text-xs text-blue-400 leading-relaxed italic">
-                      💡 <strong>Tip:</strong> Most projects use "origin" as the name. 
-                      Copy your remote URL from GitHub (HTTPS recommended) and paste it below.
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                <div className="space-y-6">
+                  <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Configure Uplink</h4>
+                  <div className="bg-blue-500/5 border border-blue-500/10 p-6 rounded-2xl">
+                    <p className="text-xs text-blue-400/80 leading-relaxed font-medium italic">
+                      💡 Connect your local project to a remote server. Enter the SSH or HTTPS URL provided by your Git hosting service.
                     </p>
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <label className="text-[10px] text-gray-400 uppercase mb-1 block">Remote URL</label>
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Remote Repository Address</label>
                       <input 
                         type="text" 
                         value={remoteUrl}
                         onChange={(e) => setRemoteUrl(e.target.value)}
-                        placeholder="https://github.com/user/repo.git"
-                        className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-white font-mono"
+                        placeholder="https://github.com/vibe/nova-core.git"
+                        className="w-full bg-gray-950/50 border border-gray-700/50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all text-white font-mono placeholder:text-gray-800"
                       />
                     </div>
-                    <button 
+                    <Button 
                       onClick={async () => {
                         if (!remoteUrl) return
                         await window.ipc.invoke('git:add-remote', 'origin', remoteUrl)
                         setRemoteUrl('')
                         await checkRemotes()
                       }}
-                      className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all shadow-lg mb-3"
+                      className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black transition-all shadow-xl shadow-blue-500/20 text-sm uppercase tracking-widest"
                     >
-                      Connect Existing Remote
-                    </button>
+                      Establish Connection
+                    </Button>
 
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                        <div className="w-full border-t border-gray-800"></div>
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-gray-900 px-2 text-gray-500 font-bold">Or</span>
-                      </div>
-                    </div>
+                    <Separator className="bg-gray-800/50 my-6" />
 
-                    <button 
+                    <Button 
                       onClick={() => setIsGitHubModalOpen(true)}
-                      className="w-full py-3 mt-3 bg-white hover:bg-gray-100 text-gray-900 rounded-lg font-bold transition-all shadow-lg flex items-center justify-center gap-2"
+                      className="w-full h-12 bg-white hover:bg-gray-100 text-gray-950 rounded-2xl font-black transition-all shadow-lg flex items-center justify-center gap-3 text-sm"
                     >
-                      <span>🐙</span> Create New GitHub Repository
-                    </button>
+                      <Globe className="size-5" />
+                      Auto-Create via GitHub API
+                    </Button>
                   </div>
                 </div>
                 
-                <div className="flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-800 rounded-2xl">
-                  <div className="bg-gray-800/50 p-4 rounded-full mb-4">
-                    <span className="text-3xl grayscale">☁️</span>
+                <div className="flex flex-col items-center justify-center text-center p-10 border-2 border-dashed border-gray-800 rounded-3xl bg-gray-950/10 group hover:border-blue-500/20 transition-all duration-700">
+                  <div className="bg-gray-800/30 w-24 h-24 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                    <Globe className="size-10 text-gray-700 group-hover:text-blue-500/50 transition-colors" />
                   </div>
-                  <h4 className="text-sm font-bold text-gray-400 mb-2">No Remote Found</h4>
-                  <p className="text-xs text-gray-600 max-w-[200px]">Connect your project to GitHub to enable cloud backup and collaboration.</p>
+                  <h4 className="text-lg font-black text-gray-500 mb-2 uppercase tracking-tighter">Isolated Environment</h4>
+                  <p className="text-xs text-gray-600 max-w-[240px] leading-relaxed font-medium">Your work is currently local only. Connect to a remote to enable cloud synchronization.</p>
                 </div>
               </div>
             )}
@@ -475,32 +567,17 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
   )
 }
 
-const SyncRemotes: React.FC<{ currentPath: string; onData?: (data: string) => void }> = ({ currentPath, onData }) => {
-  const [remotes, setRemotes] = useState('')
-  
-  useEffect(() => {
-    const fetch = async () => {
-      const r = await window.ipc.invoke('git:remotes')
-      setRemotes(r as string)
-      if (onData) onData(r as string)
-    }
-    fetch()
-    const interval = setInterval(fetch, 5000)
-    return () => clearInterval(interval)
-  }, [currentPath])
-
-  return remotes ? <pre className="whitespace-pre-wrap">{remotes}</pre> : <p className="text-gray-600">No remotes configured.</p>
-}
-
-const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string }> = ({ active, onClick, label }) => (
+const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string; icon: React.ReactNode }> = ({ active, onClick, label, icon }) => (
   <button 
     onClick={onClick}
-    className={`py-4 text-sm font-bold border-b-2 transition-all px-1 ${
+    className={cn(
+      "py-5 text-[10px] font-black border-b-[3px] transition-all px-2 flex items-center gap-2 uppercase tracking-widest",
       active 
-      ? 'border-blue-500 text-white shadow-[0_4px_12px_-4px_rgba(59,130,246,0.3)]' 
-      : 'border-transparent text-gray-500 hover:text-gray-300'
-    }`}
+        ? "border-blue-500 text-white" 
+        : "border-transparent text-gray-500 hover:text-gray-300"
+    )}
   >
+    {icon}
     {label}
   </button>
 )

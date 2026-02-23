@@ -1,4 +1,21 @@
 import React, { useState, useEffect } from 'react'
+import { 
+  Rocket, 
+  ArrowUpCircle, 
+  CheckCircle, 
+  AlertTriangle, 
+  Ship, 
+  Tag, 
+  GitPullRequest,
+  Info,
+  ChevronRight,
+  ArrowRight
+} from 'lucide-react'
+import { Button } from "./ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card"
+import { Badge } from "./ui/badge"
+import { Separator } from "./ui/separator"
+import { cn } from "@/lib/utils"
 
 interface PublishViewProps {
   currentPath: string
@@ -66,100 +83,145 @@ const PublishView: React.FC<PublishViewProps> = ({ currentPath, onRefresh }) => 
     }
   }
 
+  const nextVersion = getNextVersion(currentVersion, bumpType)
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 shadow-2xl">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="bg-purple-500/10 p-3 rounded-lg border border-purple-500/20">
-            <span className="text-2xl">🚀</span>
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-white">Publish Application</h2>
-            <p className="text-gray-400 text-sm">Automate versioning, tagging, and pushing releases.</p>
+    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000">
+      <div className="flex items-center gap-6 mb-12">
+        <div className="bg-purple-600/10 p-5 rounded-3xl border border-purple-500/20 shadow-2xl shadow-purple-900/10 scale-110">
+          <Rocket className="size-10 text-purple-500" />
+        </div>
+        <div>
+          <h2 className="text-3xl font-black text-white tracking-tighter">Release Orchestrator</h2>
+          <p className="text-gray-500 text-sm font-medium">Automate versioning, git tagging, and deployment pipelines.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        <div className="lg:col-span-3 space-y-8">
+          <Card className="bg-gray-900/40 border-gray-800 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+               <Ship className="size-32 text-purple-500" />
+            </div>
+            <CardHeader>
+              <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                <Tag className="size-4 text-purple-400" /> Version Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <div className="flex items-center justify-between p-8 bg-gray-950/50 rounded-3xl border border-gray-800/50 relative">
+                <div className="space-y-1">
+                  <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Active State</p>
+                  <p className="text-3xl font-mono font-black text-white">v{currentVersion}</p>
+                </div>
+                <div className="flex items-center px-4">
+                  <ArrowRight className="size-6 text-gray-800" />
+                </div>
+                <div className="text-right space-y-1">
+                  <p className="text-[10px] text-purple-600 font-black uppercase tracking-widest">Target State</p>
+                  <p className="text-3xl font-mono font-black text-purple-400">v{nextVersion}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest block pl-1">Semantic Level</label>
+                <div className="grid grid-cols-3 gap-4">
+                  {(['patch', 'minor', 'major'] as const).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setBumpType(type)}
+                      className={cn(
+                        "h-14 rounded-2xl border-2 text-sm font-black capitalize transition-all flex items-center justify-center gap-2",
+                        bumpType === type
+                          ? 'bg-purple-600/10 border-purple-500 text-purple-400 shadow-lg shadow-purple-900/20 scale-105'
+                          : 'bg-gray-900/50 border-gray-800 text-gray-600 hover:border-gray-700 hover:text-gray-400'
+                      )}
+                    >
+                      <ArrowUpCircle className={cn("size-4", bumpType === type ? "text-purple-400" : "text-gray-700")} />
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="bg-gray-950/30 border border-gray-800 p-8 rounded-3xl space-y-6">
+            <h4 className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Deployment Manifest</h4>
+            <div className="space-y-4">
+              <ManifestItem icon={<CheckCircle className="size-4 text-green-500" />} text={`Update package.json manifest to v${nextVersion}`} />
+              <ManifestItem icon={<CheckCircle className="size-4 text-green-500" />} text={`Generate immutable git tag v${nextVersion}`} />
+              <ManifestItem icon={<CheckCircle className="size-4 text-green-500" />} text="Push snapshots and tags to origin/main" />
+              <ManifestItem icon={<GitPullRequest className="size-4 text-blue-500" />} text="Trigger GitHub Actions deployment workflow" />
+            </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 bg-gray-800/30 rounded-lg border border-gray-800">
-            <div>
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Current Version</p>
-              <p className="text-2xl font-mono font-bold text-white">v{currentVersion}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Target Version</p>
-              <p className="text-2xl font-mono font-bold text-purple-400">v{getNextVersion(currentVersion, bumpType)}</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <label className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Release Type</label>
-            <div className="grid grid-cols-3 gap-3">
-              {(['patch', 'minor', 'major'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setBumpType(type)}
-                  className={`p-3 rounded-lg border text-sm font-bold capitalize transition-all ${
-                    bumpType === type
-                      ? 'bg-purple-600/20 border-purple-500 text-purple-400'
-                      : 'bg-gray-800/50 border-gray-700 text-gray-500 hover:border-gray-600'
-                  }`}
+        <div className="lg:col-span-2 space-y-8">
+          <Card className="bg-purple-600/5 border-purple-500/20 border-2 overflow-hidden shadow-2xl shadow-purple-950/20">
+            <CardContent className="p-8 space-y-6">
+              <div className="bg-purple-600/10 p-4 rounded-2xl border border-purple-500/30 w-fit">
+                 <Ship className="size-8 text-purple-500" />
+              </div>
+              <div>
+                <CardTitle className="text-xl font-black text-white mb-2">Ready for Lift-off?</CardTitle>
+                <CardDescription className="text-gray-500 font-medium">
+                  This action will commit version changes directly to your primary branch and create a release tag.
+                </CardDescription>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                {message && (
+                  <div className={cn(
+                    "p-4 rounded-xl text-xs font-bold font-mono tracking-tight animate-in slide-in-from-left-2 duration-300",
+                    message.includes('❌') ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-green-500/10 text-green-400 border border-green-500/20"
+                  )}>
+                    {message}
+                  </div>
+                )}
+                <Button
+                  size="lg"
+                  onClick={handlePublish}
+                  disabled={isLoading || !currentVersion}
+                  className={cn(
+                    "w-full h-16 rounded-2xl font-black text-base transition-all gap-4 shadow-2xl",
+                    isLoading || !currentVersion
+                      ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                      : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/40 hover:scale-[1.02] active:scale-95'
+                  )}
                 >
-                  {type}
-                </button>
-              ))}
+                  {isLoading ? 'Processing Release...' : 'Initiate Release'}
+                  <Rocket className={cn("size-6", isLoading && "animate-bounce")} />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="bg-amber-500/5 border border-amber-500/10 p-8 rounded-3xl space-y-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5">
+               <AlertTriangle className="size-16 text-amber-500" />
             </div>
-          </div>
-
-          <div className="bg-gray-950/50 border border-gray-800 p-4 rounded-lg space-y-2">
-            <h4 className="text-[10px] text-gray-400 font-bold uppercase">Workflow Actions</h4>
-            <ul className="text-xs text-gray-500 space-y-1">
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span> Update package.json to v{getNextVersion(currentVersion, bumpType)}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span> Create git tag v{getNextVersion(currentVersion, bumpType)}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span> Push to origin with --tags
-              </li>
-            </ul>
-          </div>
-
-          <div className="flex items-center justify-between pt-4">
-            <p className="text-xs font-medium text-purple-400">{message}</p>
-            <button
-              onClick={handlePublish}
-              disabled={isLoading || !currentVersion}
-              className={`px-8 py-3 rounded-lg font-bold text-sm transition-all shadow-lg ${
-                isLoading || !currentVersion
-                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-900/40'
-              }`}
-            >
-              {isLoading ? 'Publishing...' : 'Publish Release'}
-            </button>
+            <h4 className="text-xs font-black text-amber-500 uppercase tracking-widest flex items-center gap-3">
+              <Info className="size-4" /> Strategic Note
+            </h4>
+            <p className="text-xs text-gray-500 leading-relaxed font-medium">
+              If your CI/CD pipelines are not configured, you must manually upload build artifacts 
+              (.exe, latest.yml) to the GitHub release page to ensure functional auto-updates.
+            </p>
           </div>
         </div>
-      </div>
-
-      <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-xl space-y-3">
-        <h4 className="text-xs font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
-          <span>⚠️</span> Important: Release Artifacts
-        </h4>
-        <p className="text-xs text-gray-400 leading-relaxed">
-          The <strong>Publish</strong> button triggers your GitHub Action to build the app. 
-          If you don't use GitHub Actions, you must manually upload the <strong>.exe</strong> and <strong>latest.yml</strong> files 
-          from your local <code>dist</code> folder to the release page on GitHub for auto-updates to work.
-        </p>
-      </div>
-
-      <div className="bg-gray-900/50 border border-gray-800 p-6 rounded-xl italic">
-        <p className="text-xs text-gray-500 leading-relaxed">
-          <strong>Note:</strong> This will commit the version change directly to your `main` branch. Ensure your working tree is clean before publishing.
-        </p>
       </div>
     </div>
   )
 }
+
+const ManifestItem = ({ icon, text }: { icon: React.ReactNode, text: string }) => (
+  <div className="flex items-center gap-4 group">
+    <div className="bg-gray-900 p-2 rounded-lg border border-gray-800 group-hover:border-blue-500/30 transition-colors">
+      {icon}
+    </div>
+    <span className="text-[11px] text-gray-500 font-bold group-hover:text-gray-300 transition-colors">{text}</span>
+  </div>
+)
 
 export default PublishView

@@ -1,6 +1,21 @@
 import React, { useEffect, useRef } from 'react'
 import UpdateStatus from './UpdateStatus'
 import TitleBar from './TitleBar'
+import { 
+  LayoutDashboard, 
+  FileEdit, 
+  History, 
+  Rocket, 
+  Settings, 
+  ChevronRight,
+  Terminal as TerminalIcon,
+  Eraser,
+  FolderPlus
+} from 'lucide-react'
+import { ScrollArea } from "./ui/scroll-area"
+import { Button } from "./ui/button"
+import { Separator } from "./ui/separator"
+import { cn } from "@/lib/utils"
 
 // --- Sidebar Component ---
 interface SidebarProps {
@@ -12,27 +27,33 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTab, onTabChange }) => {
   return (
-    <div className="w-72 bg-gray-900 flex flex-col border-r border-gray-800">
+    <div className="w-64 bg-gray-950 flex flex-col border-r border-gray-800">
       <div className="p-6">
-        <h1 className="text-xl font-bold text-white mb-2">GitPush GUI</h1>
-        <p className="text-xs text-gray-400 uppercase tracking-widest">Git Client</p>
+        <h1 className="text-xl font-bold text-white mb-1">GitPush GUI</h1>
+        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+          Git Client
+        </p>
       </div>
 
-      <div className="px-4 mb-6">
-        <button 
+      <div className="px-4 mb-4">
+        <Button 
           onClick={onSelectFolder}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-2 px-4 rounded-md transition-colors text-sm font-medium flex items-center justify-center gap-2"
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center gap-2"
         >
-          <span>📁</span> Select Repository
-        </button>
+          <FolderPlus className="size-4" />
+          Select Repository
+        </Button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4">
+      <Separator className="mx-4 w-auto bg-gray-800 mb-4" />
+
+      <ScrollArea className="flex-1 px-3">
         {currentPath ? (
           <div className="space-y-4">
-            <div className="bg-gray-800 p-3 rounded-md border border-gray-700">
-              <p className="text-xs text-gray-400 mb-1">Active Project</p>
-              <p className="text-sm font-mono truncate text-blue-400" title={currentPath}>
+            <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-800/50 mb-4">
+              <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Active Project</p>
+              <p className="text-xs font-mono truncate text-blue-400 font-medium" title={currentPath}>
                 {currentPath.split(/[\\/]/).pop()}
               </p>
             </div>
@@ -40,61 +61,69 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTa
             <nav className="space-y-1">
               <SidebarItem 
                 label="Status" 
-                active={activeTab === 'Status'} 
-                icon="📊" 
+                active={activeTab === 'Status' || activeTab === 'Changes'} 
+                icon={<LayoutDashboard className="size-4" />} 
                 onClick={() => onTabChange('Status')}
-              />
-              <SidebarItem 
-                label="Changes" 
-                active={activeTab === 'Changes'} 
-                icon="📝" 
-                onClick={() => onTabChange('Changes')}
               />
               <SidebarItem 
                 label="History" 
                 active={activeTab === 'History'} 
-                icon="🕒" 
+                icon={<History className="size-4" />} 
                 onClick={() => onTabChange('History')}
               />
               <SidebarItem 
                 label="Publish" 
                 active={activeTab === 'Publish'} 
-                icon="🚀" 
+                icon={<Rocket className="size-4" />} 
                 onClick={() => onTabChange('Publish')}
               />
               <SidebarItem 
                 label="Settings" 
                 active={activeTab === 'Settings'} 
-                icon="⚙️" 
+                icon={<Settings className="size-4" />} 
                 onClick={() => onTabChange('Settings')}
               />
             </nav>
           </div>
         ) : (
-          <div className="text-center mt-10">
-            <p className="text-sm text-gray-500 italic">No repository selected</p>
+          <div className="text-center mt-10 p-4">
+            <div className="bg-gray-900/30 rounded-lg p-4 border border-dashed border-gray-800">
+               <p className="text-xs text-gray-500 italic">Open a repository to get started</p>
+            </div>
           </div>
         )}
-      </div>
+      </ScrollArea>
 
-      <div className="p-4 border-t border-gray-800 bg-gray-900/50">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <div className="w-2 h-2 rounded-full bg-green-500"></div>
-          Git Ready
+      <div className="p-4 border-t border-gray-800 bg-gray-950/50 mt-auto">
+        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
+          Git Core Ready
         </div>
       </div>
     </div>
   )
 }
 
-const SidebarItem: React.FC<{ label: string; active?: boolean; icon: string; onClick: () => void }> = ({ label, active, icon, onClick }) => (
+const SidebarItem: React.FC<{ label: string; active?: boolean; icon: React.ReactNode; onClick: () => void }> = ({ label, active, icon, onClick }) => (
   <button 
     onClick={onClick}
-    className={`w-full text-left px-3 py-2 rounded-md transition-colors flex items-center gap-3 ${
-    active ? 'bg-gray-800 text-white' : 'hover:bg-gray-800/50 text-gray-400'
-  }`}>
-    <span className="text-sm">{icon}</span>
-    <span className="text-sm font-medium">{label}</span>
+    className={cn(
+      "w-full flex items-center gap-3 px-3 py-2 rounded-md transition-all group relative",
+      active 
+        ? "bg-blue-600/10 text-blue-400 font-medium border border-blue-600/20" 
+        : "text-gray-400 hover:text-gray-200 hover:bg-gray-900/50"
+    )}
+  >
+    <span className={cn(
+      "transition-colors",
+      active ? "text-blue-400" : "text-gray-500 group-hover:text-gray-300"
+    )}>
+      {icon}
+    </span>
+    <span className="text-sm">{label}</span>
+    {active && (
+       <div className="absolute right-2 w-1 h-3 rounded-full bg-blue-500" />
+    )}
   </button>
 )
 
@@ -122,56 +151,57 @@ const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear }) => {
   }
 
   return (
-    <div className="h-64 bg-black border-t border-gray-800 flex flex-col font-mono text-xs">
-      <div className="bg-gray-900 px-4 py-1 border-b border-gray-800 flex justify-between items-center text-gray-400 uppercase tracking-tight text-[10px]">
-        <span>Console Output</span>
-        <button 
+    <div className="h-72 bg-gray-950 border-t border-gray-800 flex flex-col font-mono">
+      <div className="bg-gray-900/50 px-4 py-1.5 border-b border-gray-800 flex justify-between items-center text-gray-400 uppercase tracking-widest text-[10px] font-bold">
+        <div className="flex items-center gap-2">
+          <TerminalIcon className="size-3 text-blue-500" />
+          <span>Output Console</span>
+        </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
           onClick={onClear}
-          className="hover:text-white transition-colors"
+          className="h-5 px-2 text-[10px] hover:text-white hover:bg-gray-800 transition-colors gap-1.5 font-bold"
         >
+          <Eraser className="size-3" />
           Clear
-        </button>
+        </Button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar min-h-0">
-        {logs.length === 0 ? (
-          <p className="text-gray-700 italic">No output yet...</p>
-        ) : (
-          logs.map((log, i) => (
-            <div key={i} className="text-gray-300 whitespace-pre-wrap leading-relaxed">
-              <span className="text-gray-600 mr-2">$</span>
-              {log}
-            </div>
-          ))
-        )}
-        <div ref={bottomRef} />
-      </div>
-      <form onSubmit={handleSubmit} className="border-t border-gray-800 bg-gray-900/50 p-2 flex gap-3">
-        <span className="text-blue-500 font-bold ml-2">git</span>
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-1.5 custom-scrollbar min-h-0 text-[11px]">
+          {logs.length === 0 ? (
+            <p className="text-gray-700 italic opacity-50"># Terminal is empty, waiting for output...</p>
+          ) : (
+            logs.map((log, i) => (
+              <div key={i} className="text-gray-300 whitespace-pre-wrap leading-relaxed flex gap-2">
+                <span className="text-gray-600 select-none shrink-0">$</span>
+                <span className="flex-1">{log}</span>
+              </div>
+            ))
+          )}
+          <div ref={bottomRef} className="h-2" />
+        </div>
+      </ScrollArea>
+      <form onSubmit={handleSubmit} className="border-t border-gray-800 bg-gray-900/30 p-2 flex gap-3 items-center group">
+        <div className="flex items-center gap-1.5 ml-2 text-blue-500 font-bold text-xs select-none">
+          <span>git</span>
+          <ChevronRight className="size-3 opacity-50" />
+        </div>
         <input 
           type="text" 
           value={command}
-          onChange={(e) => {
-            const val = e.target.value;
-            // Ensure the user doesn't delete the 'git ' prefix if they type it,
-            // or we just prepend 'git ' automatically if they don't.
-            // Actually, for simplicity, let's just make it a normal input.
-            setCommand(val)
-          }}
-          onKeyDown={(e) => {
-             if (e.key === 'Enter' && !command.startsWith('git ')) {
-                // If the user forgot 'git ', we add it for them
-                // setCommand('git ' + command) // This is reactive, might be too slow
-             }
-          }}
+          onChange={(e) => setCommand(e.target.value)}
           placeholder="type your command here (e.g. status)"
-          className="bg-transparent border-none outline-none text-gray-300 flex-1 placeholder:text-gray-700"
+          className="bg-transparent border-none outline-none text-gray-300 flex-1 placeholder:text-gray-700 text-xs"
         />
-        <button 
+        <Button 
           type="submit"
-          className="text-[10px] text-gray-500 hover:text-blue-400 uppercase tracking-widest font-bold px-3 transition-colors"
+          variant="ghost"
+          size="sm"
+          className="h-6 text-[10px] text-gray-500 hover:text-blue-400 uppercase tracking-widest font-black px-4 transition-colors hover:bg-blue-500/5"
         >
-          Run
-        </button>
+          Execute
+        </Button>
       </form>
     </div>
   )
@@ -193,25 +223,27 @@ const Layout: React.FC<LayoutProps> = ({
   children, currentPath, onSelectFolder, terminalOutput, onRunCommand, onClearTerminal, activeTab, onTabChange 
 }) => {
   return (
-    <div className="flex flex-col h-screen bg-gray-950 text-gray-200 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden font-sans border border-gray-800 rounded-lg shadow-2xl">
       <TitleBar onSelectFolder={onSelectFolder} />
       <div className="flex flex-1 overflow-hidden">
-      <Sidebar 
-        currentPath={currentPath} 
-        onSelectFolder={onSelectFolder} 
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-      />
-      <main className="flex-1 flex flex-col overflow-hidden border-l border-gray-800">
-        <div className="flex-1 overflow-auto p-6">
-          {children}
-        </div>
-        <Terminal logs={terminalOutput} onRunCommand={onRunCommand} onClear={onClearTerminal} />
-      </main>
+        <Sidebar 
+          currentPath={currentPath} 
+          onSelectFolder={onSelectFolder} 
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <ScrollArea className="flex-1 bg-gray-950/50">
+            <div className="p-8">
+              {children}
+            </div>
+          </ScrollArea>
+          <Terminal logs={terminalOutput} onRunCommand={onRunCommand} onClear={onClearTerminal} />
+        </main>
+      </div>
+      <UpdateStatus />
     </div>
-    <UpdateStatus />
-  </div>
-)
+  )
 }
 
 export default Layout

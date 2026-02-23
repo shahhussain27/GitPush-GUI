@@ -1,5 +1,5 @@
 import path from 'path'
-import { app, ipcMain, dialog } from 'electron'
+import { app, ipcMain, dialog, BrowserWindow } from 'electron'
 import serve from 'electron-serve'
 import { createWindow } from './helpers'
 import { gitService } from './services/gitService'
@@ -23,14 +23,39 @@ if (isProd) {
 ;(async () => {
   await app.whenReady()
 
+  // --- Splash Screen ---
+  const splashWindow = new BrowserWindow({
+    width: 450,
+    height: 350,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    center: true,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false
+    }
+  })
+
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'))
+
   const mainWindow = createWindow('main', {
     width: 1200,
     height: 800,
     frame: false,
     titleBarStyle: 'hidden',
+    show: false, // Don't show the window yet
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
+  })
+
+  // When main window is ready to show
+  mainWindow.once('ready-to-show', () => {
+    setTimeout(() => {
+      splashWindow.destroy()
+      mainWindow.show()
+    }, 2000) // Delay to show splash screen for at least 2 seconds
   })
 
   if (isProd) {
