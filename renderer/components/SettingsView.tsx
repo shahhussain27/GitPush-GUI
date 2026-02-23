@@ -8,7 +8,8 @@ import {
   Github, 
   Info,
   Terminal,
-  Cpu
+  Cpu,
+  RefreshCw
 } from 'lucide-react'
 import { Button } from "./ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./ui/card"
@@ -58,6 +59,27 @@ const SettingsView: React.FC = () => {
     }
   }
 
+  const handleCheckForUpdates = async () => {
+    setIsSaving(true)
+    setMessage('🔍 Checking for updates...')
+    try {
+      const result = await window.ipc.invoke('update:check')
+      if (result.success) {
+        if (result.info) {
+          setMessage(`🎉 New version v${result.info.version} available!`)
+        } else {
+          setMessage('✅ You are on the latest version.')
+        }
+      } else {
+        setMessage(`❌ ${result.error}`)
+      }
+    } catch (err: any) {
+      setMessage(`❌ Update check failed: ${err.message}`)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-1000 pb-20">
       <div className="flex items-center gap-6 mb-12">
@@ -70,88 +92,132 @@ const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      <Card className="bg-gray-900/40 border-gray-800 shadow-2xl relative overflow-hidden backdrop-blur-xl">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-           <Terminal className="size-32 text-blue-500" />
-        </div>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-             <User className="size-5 text-blue-500" />
-             <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest leading-none mt-0.5">Global Identity</CardTitle>
+      <div className="grid grid-cols-1 gap-8">
+        <Card className="bg-gray-900/40 border-gray-800 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+             <Terminal className="size-32 text-blue-500" />
           </div>
-          <CardDescription className="text-gray-600 mt-2">These credentials will be attached to every commit you manifest.</CardDescription>
-        </CardHeader>
-        
-        <CardContent>
-          <form onSubmit={handleSave} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest pl-1">Author Alias</label>
-                <div className="relative group">
-                  <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-600 group-focus-within:text-blue-500 transition-colors" />
-                  <input 
-                    type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Satoshi Nakamoto"
-                    className="w-full bg-gray-950/50 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all placeholder:text-gray-800 font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest pl-1">Communication Node</label>
-                <div className="relative group">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-600 group-focus-within:text-blue-500 transition-colors" />
-                  <input 
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="e.g. s.nakamoto@p2p.foundation"
-                    className="w-full bg-gray-950/50 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all placeholder:text-gray-800 font-bold"
-                  />
-                </div>
-              </div>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+               <User className="size-5 text-blue-500" />
+               <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest leading-none mt-0.5">Global Identity</CardTitle>
             </div>
-
-            <div className="bg-blue-500/5 border border-blue-500/10 p-6 rounded-3xl flex items-start gap-4">
-               <ShieldCheck className="size-5 text-blue-500 shrink-0 mt-0.5" />
-               <div className="space-y-1">
-                 <p className="text-xs font-black text-blue-500/70 uppercase tracking-widest">Global Synchronization</p>
-                 <p className="text-xs text-gray-500 leading-relaxed font-medium">
-                   This action executes `git config --global`. These settings persist across all local repositories unless explicitly overridden in specific project contexts.
-                 </p>
-               </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-6 border-t border-gray-800/50">
-              <div className="flex items-center gap-2">
-                {message && (
-                  <div className={cn(
-                    "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest animate-in slide-in-from-left-2 transition-all",
-                    message.includes('✅') ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-red-500/10 text-red-500 border border-red-500/20"
-                  )}>
-                    {message}
+            <CardDescription className="text-gray-600 mt-2">These credentials will be attached to every commit you manifest.</CardDescription>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSave} className="space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3">
+                  <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest pl-1">Author Alias</label>
+                  <div className="relative group">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-600 group-focus-within:text-blue-500 transition-colors" />
+                    <input 
+                      type="text" 
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Satoshi Nakamoto"
+                      className="w-full bg-gray-950/50 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all placeholder:text-gray-800 font-bold"
+                    />
                   </div>
-                )}
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] text-gray-500 font-black uppercase tracking-widest pl-1">Communication Node</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-gray-600 group-focus-within:text-blue-500 transition-colors" />
+                    <input 
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="e.g. s.nakamoto@p2p.foundation"
+                      className="w-full bg-gray-950/50 border border-gray-800 rounded-2xl py-4 pl-12 pr-4 text-sm text-white focus:ring-2 focus:ring-blue-500/30 outline-none transition-all placeholder:text-gray-800 font-bold"
+                    />
+                  </div>
+                </div>
               </div>
-              <Button 
-                type="submit"
-                disabled={isSaving}
-                className={cn(
-                  "h-14 px-10 rounded-2xl font-black text-xs uppercase tracking-widest transition-all gap-3 shadow-2xl",
-                  isSaving 
-                  ? 'bg-gray-800 text-gray-600 cursor-not-allowed' 
-                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/40 hover:scale-[1.02] active:scale-95'
-                )}
-              >
-                {isSaving ? 'Syncing...' : 'Commit Changes'}
-                <Save className={cn("size-4", isSaving && "animate-pulse")} />
-              </Button>
+
+              <div className="bg-blue-500/5 border border-blue-500/10 p-6 rounded-3xl flex items-start gap-4">
+                 <ShieldCheck className="size-5 text-blue-500 shrink-0 mt-0.5" />
+                 <div className="space-y-1">
+                   <p className="text-xs font-black text-blue-500/70 uppercase tracking-widest">Global Synchronization</p>
+                   <p className="text-xs text-gray-500 leading-relaxed font-medium">
+                     This action executes `git config --global`. These settings persist across all local repositories unless explicitly overridden in specific project contexts.
+                   </p>
+                 </div>
+              </div>
+
+              <div className="flex items-center justify-end pt-6 border-t border-gray-800/50">
+                <Button 
+                  type="submit"
+                  disabled={isSaving}
+                  className={cn(
+                    "h-14 px-10 rounded-2xl font-black text-xs uppercase tracking-widest transition-all gap-3 shadow-2xl",
+                    isSaving 
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed' 
+                    : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/40 hover:scale-[1.02] active:scale-95'
+                  )}
+                >
+                  {isSaving ? 'Syncing...' : 'Update Identity'}
+                  <Save className={cn("size-4", isSaving && "animate-pulse")} />
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gray-900/40 border-gray-800 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+             <Info className="size-32 text-blue-500" />
+          </div>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+               <Info className="size-5 text-blue-500" />
+               <CardTitle className="text-sm font-black text-gray-400 uppercase tracking-widest leading-none mt-0.5">About GitPush GUI</CardTitle>
             </div>
-          </form>
-        </CardContent>
-      </Card>
+            <CardDescription className="text-gray-600 mt-2">Professional Grade Git Desktop Client for Advanced Workflows.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                   <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Build Version</p>
+                   <p className="text-xl font-mono font-black text-white">v{version}</p>
+                </div>
+                <div className="space-y-1">
+                   <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest">Developer</p>
+                   <p className="text-sm font-bold text-blue-400">Mirza Shah Hussain</p>
+                </div>
+              </div>
+              <div className="flex flex-col justify-end items-end gap-3">
+                <Button 
+                  onClick={handleCheckForUpdates}
+                  disabled={isSaving}
+                  className="h-14 px-8 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs uppercase tracking-widest gap-3 shadow-xl shadow-blue-900/20"
+                >
+                  {isSaving ? 'Checking...' : 'Check for Updates'}
+                  <RefreshCw className={cn("size-4", isSaving && "animate-spin")} />
+                </Button>
+                <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest text-right max-w-[200px]">
+                  Updates are handled via Electron Autoupdater and GitHub Releases.
+                </p>
+              </div>
+            </div>
+            
+            {message && (
+              <div className={cn(
+                "p-4 rounded-2xl text-[11px] font-bold font-mono tracking-tight animate-in slide-in-from-left-2 transition-all",
+                message.includes('✅') ? "bg-green-500/10 text-green-500 border border-green-500/20" : 
+                message.includes('🎉') ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
+                message.includes('❌') ? "bg-red-500/10 text-red-500 border border-red-500/20" :
+                "bg-blue-600/10 text-blue-300 border border-blue-500/20"
+              )}>
+                {message}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="flex flex-col items-center justify-center pt-16 border-t border-gray-800/50 gap-4 opacity-30 hover:opacity-100 transition-all duration-700 grayscale hover:grayscale-0">
         <div className="flex items-center gap-4">

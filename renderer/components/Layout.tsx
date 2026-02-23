@@ -132,15 +132,19 @@ interface TerminalProps {
   logs: string[]
   onRunCommand?: (command: string) => void
   onClear?: () => void
+  isVisible: boolean
+  onToggle: () => void
 }
 
-const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear }) => {
+const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear, isVisible, onToggle }) => {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [command, setCommand] = React.useState('')
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [logs])
+    if (isVisible) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [logs, isVisible])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,24 +155,38 @@ const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear }) => {
   }
 
   return (
-    <div className="h-72 bg-gray-950 border-t border-gray-800 flex flex-col font-mono">
-      <div className="bg-gray-900/50 px-4 py-1.5 border-b border-gray-800 flex justify-between items-center text-gray-400 uppercase tracking-widest text-[10px] font-bold">
+    <div className={cn(
+      "bg-gray-950 border-t border-gray-800 flex flex-col font-mono transition-all duration-500 ease-in-out overflow-hidden relative",
+      isVisible ? "h-72 opacity-100" : "h-0 opacity-0 border-t-0"
+    )}>
+      <div className="bg-gray-900/50 px-4 py-1.5 border-b border-gray-800 flex justify-between items-center text-gray-400 uppercase tracking-widest text-[10px] font-bold shrink-0">
         <div className="flex items-center gap-2">
           <TerminalIcon className="size-3 text-blue-500" />
           <span>Output Console</span>
         </div>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={onClear}
-          className="h-5 px-2 text-[10px] hover:text-white hover:bg-gray-800 transition-colors gap-1.5 font-bold"
-        >
-          <Eraser className="size-3" />
-          Clear
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClear}
+            className="h-5 px-2 text-[10px] hover:text-white hover:bg-gray-800 transition-colors gap-1.5 font-bold"
+          >
+            <Eraser className="size-3" />
+            Clear
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onToggle}
+            className="h-5 px-2 text-[10px] hover:text-white hover:bg-gray-800 transition-colors font-bold"
+            title="Hide Terminal"
+          >
+            <ChevronRight className="size-3 rotate-90" />
+          </Button>
+        </div>
       </div>
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-1.5 custom-scrollbar min-h-0 text-[11px]">
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-4 space-y-1.5 custom-scrollbar text-[11px]">
           {logs.length === 0 ? (
             <p className="text-gray-700 italic opacity-50"># Terminal is empty, waiting for output...</p>
           ) : (
@@ -182,7 +200,7 @@ const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear }) => {
           <div ref={bottomRef} className="h-2" />
         </div>
       </ScrollArea>
-      <form onSubmit={handleSubmit} className="border-t border-gray-800 bg-gray-900/30 p-2 flex gap-3 items-center group">
+      <form onSubmit={handleSubmit} className="border-t border-gray-800 bg-gray-900/30 p-2 flex gap-3 items-center group shrink-0">
         <div className="flex items-center gap-1.5 ml-2 text-blue-500 font-bold text-xs select-none">
           <span>git</span>
           <ChevronRight className="size-3 opacity-50" />
@@ -222,23 +240,43 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ 
   children, currentPath, onSelectFolder, terminalOutput, onRunCommand, onClearTerminal, activeTab, onTabChange 
 }) => {
+  const [isTerminalVisible, setIsTerminalVisible] = React.useState(true)
+
   return (
     <div className="flex flex-col h-screen bg-gray-950 text-gray-100 overflow-hidden font-sans border border-gray-800 rounded-lg shadow-2xl">
       <TitleBar onSelectFolder={onSelectFolder} />
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden relative">
         <Sidebar 
           currentPath={currentPath} 
           onSelectFolder={onSelectFolder} 
           activeTab={activeTab}
           onTabChange={onTabChange}
         />
-        <main className="flex-1 flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col overflow-hidden relative">
           <ScrollArea className="flex-1 bg-gray-950/50">
             <div className="p-8">
               {children}
             </div>
           </ScrollArea>
-          <Terminal logs={terminalOutput} onRunCommand={onRunCommand} onClear={onClearTerminal} />
+          
+          <Terminal 
+            logs={terminalOutput} 
+            onRunCommand={onRunCommand} 
+            onClear={onClearTerminal} 
+            isVisible={isTerminalVisible}
+            onToggle={() => setIsTerminalVisible(false)}
+          />
+
+          {!isTerminalVisible && (
+            <button 
+              onClick={() => setIsTerminalVisible(true)}
+              className="absolute bottom-4 right-8 z-50 bg-gray-900/90 hover:bg-blue-600 border border-gray-800 hover:border-blue-500 p-3 rounded-2xl shadow-2xl transition-all group animate-in slide-in-from-bottom-4 duration-300"
+              title="Show Terminal"
+            >
+              <TerminalIcon className="size-5 text-gray-400 group-hover:text-white transition-colors" />
+              <div className="absolute -top-1 -right-1 size-2 bg-blue-500 rounded-full animate-pulse"></div>
+            </button>
+          )}
         </main>
       </div>
       <UpdateStatus />

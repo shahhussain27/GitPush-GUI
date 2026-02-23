@@ -352,6 +352,19 @@ if (isProd) {
     autoUpdater.quitAndInstall()
   })
 
+  ipcMain.handle('update:check', async () => {
+    if (isProd) {
+      try {
+        const result = await autoUpdater.checkForUpdates()
+        return { success: true, info: result ? result.updateInfo : null }
+      } catch (error: any) {
+        return { success: false, error: error.message }
+      }
+    } else {
+      return { success: false, error: 'Update checks are disabled in development mode.' }
+    }
+  })
+
   // Window Controls
   ipcMain.on('window:minimize', () => {
     mainWindow.minimize()
