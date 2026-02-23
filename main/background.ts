@@ -6,6 +6,11 @@ import { gitService } from './services/gitService'
 import { lfsService } from './services/lfsService'
 import { gitignoreService } from './services/gitignoreService'
 import { GitHubService } from './services/githubService'
+import { autoUpdater } from 'electron-updater'
+import log from 'electron-log'
+
+autoUpdater.logger = log
+log.transports.file.level = 'info'
 
 const isProd = process.env.NODE_ENV === 'production'
 
@@ -32,6 +37,34 @@ if (isProd) {
     const port = process.argv[2]
     await mainWindow.loadURL(`http://localhost:${port}/home`)
     // mainWindow.webContents.openDevTools()
+  }
+
+  function sendStatusToWindow(text: string, data?: any) {
+    log.info(text, data)
+    mainWindow.webContents.send('update-message', { text, data })
+  }
+
+  autoUpdater.on('checking-for-update', () => {
+    sendStatusToWindow('Checking for update...')
+  })
+  autoUpdater.on('update-available', (info) => {
+    sendStatusToWindow('Update available.', info)
+  })
+  autoUpdater.on('update-not-available', (info) => {
+    sendStatusToWindow('Update not available.', info)
+  })
+  autoUpdater.on('error', (err) => {
+    sendStatusToWindow('Error in auto-updater. ' + (err instanceof Error ? err.message : String(err)))
+  })
+  autoUpdater.on('download-progress', (progressObj) => {
+    sendStatusToWindow('Download progress...', progressObj)
+  })
+  autoUpdater.on('update-downloaded', (info) => {
+    sendStatusToWindow('Update downloaded', info)
+  })
+
+  if (isProd) {
+    autoUpdater.checkForUpdatesAndNotify()
   }
 
   // IPC Handlers
@@ -241,6 +274,10 @@ if (isProd) {
       return { success: false, error: error.message };
     }
   });
+
+  ipcMain.handle('update:install', () => {
+    autoUpdater.quitAndInstall()
+  })
 
 })()
 

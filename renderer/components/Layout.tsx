@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react'
+import UpdateStatus from './UpdateStatus'
 
 // --- Sidebar Component ---
 interface SidebarProps {
@@ -191,6 +192,7 @@ const Layout: React.FC<LayoutProps> = ({
         </div>
         <Terminal logs={terminalOutput} onRunCommand={onRunCommand} />
       </main>
+      <UpdateStatus />
     </div>
   )
 }
