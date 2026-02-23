@@ -4,6 +4,7 @@ import Layout from '../components/Layout'
 import RepositoryView from '../components/RepositoryView'
 import HistoryView from '../components/HistoryView'
 import SettingsView from '../components/SettingsView'
+import PublishView from '../components/PublishView'
 import { useGit } from '../hooks/useGit'
 
 export default function HomePage() {
@@ -73,6 +74,8 @@ export default function HomePage() {
     switch (activeSidebarTab) {
       case 'History':
         return <HistoryView />
+      case 'Publish':
+        return <PublishView currentPath={currentPath} onRefresh={refreshStatus} />
       case 'Settings':
         return <SettingsView />
       case 'Changes':

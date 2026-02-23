@@ -56,6 +56,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTa
                 onClick={() => onTabChange('History')}
               />
               <SidebarItem 
+                label="Publish" 
+                active={activeTab === 'Publish'} 
+                icon="🚀" 
+                onClick={() => onTabChange('Publish')}
+              />
+              <SidebarItem 
                 label="Settings" 
                 active={activeTab === 'Settings'} 
                 icon="⚙️" 

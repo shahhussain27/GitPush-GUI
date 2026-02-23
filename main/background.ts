@@ -275,6 +275,47 @@ if (isProd) {
     }
   });
 
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion()
+  })
+
+  ipcMain.handle('project:get-version', async () => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) return null
+      const pkgPath = path.join(projectPath, 'package.json')
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+        return pkg.version
+      }
+      return null
+    } catch (error) {
+      console.error('Error getting project version:', error)
+      return null
+    }
+  })
+
+  ipcMain.handle('project:set-version', async (_event, version) => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) throw new Error('No project path set')
+      const pkgPath = path.join(projectPath, 'package.json')
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+        pkg.version = version
+        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+        return { success: true }
+      }
+      throw new Error('package.json not found')
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('update:install', () => {
     autoUpdater.quitAndInstall()
   })

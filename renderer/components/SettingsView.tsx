@@ -3,18 +3,21 @@ import React, { useEffect, useState } from 'react'
 const SettingsView: React.FC = () => {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [version, setVersion] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const [n, e] = await Promise.all([
+        const [n, e, v] = await Promise.all([
           window.ipc.invoke('git:config-get', 'user.name'),
-          window.ipc.invoke('git:config-get', 'user.email')
+          window.ipc.invoke('git:config-get', 'user.email'),
+          window.ipc.invoke('app:get-version')
         ])
         setName(n as string)
         setEmail(e as string)
+        setVersion(v as string)
       } catch (err) {
         console.error('Failed to load config:', err)
       }
@@ -40,7 +43,7 @@ const SettingsView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
       <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 shadow-2xl">
         <div className="flex items-center gap-4 mb-8">
           <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
@@ -96,6 +99,14 @@ const SettingsView: React.FC = () => {
         <p className="text-xs text-gray-500 leading-relaxed">
           <strong>Note:</strong> These settings run the `git config --global` command. They will apply to all commits you make on this system. repo-specific settings are not yet modularly supported.
         </p>
+      </div>
+
+      <div className="flex flex-col items-center justify-center pt-8 border-t border-gray-800/50 gap-2 opacity-50 hover:opacity-100 transition-opacity">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em]">GitPush GUI</span>
+          <span className="text-[10px] px-2 py-0.5 bg-gray-800 border border-gray-700 text-gray-400 rounded-full font-mono">v{version}</span>
+        </div>
+        <p className="text-[9px] text-gray-600 font-medium">Build with Nextron & Electron</p>
       </div>
     </div>
   )

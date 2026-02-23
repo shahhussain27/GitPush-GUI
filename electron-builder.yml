@@ -12,5 +12,5 @@ files:
 publish:
   provider: github
   owner: shahhussain27
-  repo: gitpush-gui
+  repo: GitPush-GUI
   releaseType: release
