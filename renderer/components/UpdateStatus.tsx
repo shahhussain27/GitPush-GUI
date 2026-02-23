@@ -24,16 +24,18 @@ const UpdateStatus: React.FC = () => {
       
       setStatus(text)
 
-      if (text === 'Update available.') {
+      if (text.startsWith('Update available.')) {
         setUpdateInfo(payload)
         setShow(true)
-      } else if (text === 'Download progress...') {
+      } else if (text.startsWith('Download progress...')) {
         setProgress(payload)
-      } else if (text === 'Update downloaded') {
+      } else if (text.startsWith('Update downloaded')) {
         setStatus('Ready to install!')
-      } else if (text === 'Error in auto-updater.') {
+        setShow(true)
+      } else if (text.startsWith('Error in auto-updater.')) {
+        setShow(true)
         // Hide after some time if it's an error
-        setTimeout(() => setShow(false), 5000)
+        setTimeout(() => setShow(false), 8000)
       }
     })
 

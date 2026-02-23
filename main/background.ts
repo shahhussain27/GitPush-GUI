@@ -63,8 +63,13 @@ if (isProd) {
     sendStatusToWindow('Update downloaded', info)
   })
 
+  log.info(`[App] Starting in ${isProd ? 'production' : 'development'} mode`)
+
   if (isProd) {
     autoUpdater.checkForUpdatesAndNotify()
+    log.info('[Updater] Checking for updates...')
+  } else {
+    log.info('[Updater] Skipped update check in development mode')
   }
 
   // IPC Handlers

@@ -2,7 +2,11 @@
   "private": true,
   "name": "gitpush-gui",
   "description": "A simple GUI for GitPush",
-  "version": "1.0.2",
+  "version": "1.0.3",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shahhussain27/GitPush-GUI.git"
+  },
   "author": "Mirza Shah Hussain <mirzashahhussain63@gmail.com>",
   "main": "app/background.js",
   "scripts": {
