@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react'
 import UpdateStatus from './UpdateStatus'
+import TitleBar from './TitleBar'
 
 // --- Sidebar Component ---
 interface SidebarProps {
@@ -56,6 +57,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTa
                 onClick={() => onTabChange('History')}
               />
               <SidebarItem 
+                label="Publish" 
+                active={activeTab === 'Publish'} 
+                icon="🚀" 
+                onClick={() => onTabChange('Publish')}
+              />
+              <SidebarItem 
                 label="Settings" 
                 active={activeTab === 'Settings'} 
                 icon="⚙️" 
@@ -95,9 +102,10 @@ const SidebarItem: React.FC<{ label: string; active?: boolean; icon: string; onC
 interface TerminalProps {
   logs: string[]
   onRunCommand?: (command: string) => void
+  onClear?: () => void
 }
 
-const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand }) => {
+const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand, onClear }) => {
   const bottomRef = useRef<HTMLDivElement>(null)
   const [command, setCommand] = React.useState('')
 
@@ -117,7 +125,12 @@ const Terminal: React.FC<TerminalProps> = ({ logs, onRunCommand }) => {
     <div className="h-64 bg-black border-t border-gray-800 flex flex-col font-mono text-xs">
       <div className="bg-gray-900 px-4 py-1 border-b border-gray-800 flex justify-between items-center text-gray-400 uppercase tracking-tight text-[10px]">
         <span>Console Output</span>
-        <button className="hover:text-white transition-colors">Clear</button>
+        <button 
+          onClick={onClear}
+          className="hover:text-white transition-colors"
+        >
+          Clear
+        </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar min-h-0">
         {logs.length === 0 ? (
@@ -171,15 +184,18 @@ interface LayoutProps {
   onSelectFolder: () => void
   terminalOutput: string[]
   onRunCommand: (command: string) => void
+  onClearTerminal?: () => void
   activeTab: string
   onTabChange: (tab: string) => void
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, currentPath, onSelectFolder, terminalOutput, onRunCommand, activeTab, onTabChange 
+  children, currentPath, onSelectFolder, terminalOutput, onRunCommand, onClearTerminal, activeTab, onTabChange 
 }) => {
   return (
-    <div className="flex h-screen bg-gray-950 text-gray-200 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen bg-gray-950 text-gray-200 overflow-hidden font-sans">
+      <TitleBar onSelectFolder={onSelectFolder} />
+      <div className="flex flex-1 overflow-hidden">
       <Sidebar 
         currentPath={currentPath} 
         onSelectFolder={onSelectFolder} 
@@ -190,11 +206,12 @@ const Layout: React.FC<LayoutProps> = ({
         <div className="flex-1 overflow-auto p-6">
           {children}
         </div>
-        <Terminal logs={terminalOutput} onRunCommand={onRunCommand} />
+        <Terminal logs={terminalOutput} onRunCommand={onRunCommand} onClear={onClearTerminal} />
       </main>
-      <UpdateStatus />
     </div>
-  )
+    <UpdateStatus />
+  </div>
+)
 }
 
 export default Layout

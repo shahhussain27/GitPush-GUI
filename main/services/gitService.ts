@@ -15,6 +15,10 @@ class GitService {
     this.currentPath = path;
   }
 
+  getPath() {
+    return this.currentPath;
+  }
+
   execute(
     args: string[],
     onData?: (data: string) => void,

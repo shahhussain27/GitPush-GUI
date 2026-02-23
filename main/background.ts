@@ -12,7 +12,7 @@ import log from 'electron-log'
 autoUpdater.logger = log
 log.transports.file.level = 'info'
 
-const isProd = process.env.NODE_ENV === 'production'
+const isProd = app.isPackaged || process.env.NODE_ENV === 'production'
 
 if (isProd) {
   serve({ directory: 'app' })
@@ -26,6 +26,8 @@ if (isProd) {
   const mainWindow = createWindow('main', {
     width: 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
@@ -63,8 +65,13 @@ if (isProd) {
     sendStatusToWindow('Update downloaded', info)
   })
 
+  log.info(`[App] Starting in ${isProd ? 'production' : 'development'} mode`)
+
   if (isProd) {
     autoUpdater.checkForUpdatesAndNotify()
+    log.info('[Updater] Checking for updates...')
+  } else {
+    log.info('[Updater] Skipped update check in development mode')
   }
 
   // IPC Handlers
@@ -275,8 +282,81 @@ if (isProd) {
     }
   });
 
+  ipcMain.handle('app:get-version', () => {
+    return app.getVersion()
+  })
+
+  ipcMain.handle('project:get-version', async () => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) return null
+      const pkgPath = path.join(projectPath, 'package.json')
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+        return pkg.version
+      }
+      return null
+    } catch (error) {
+      console.error('Error getting project version:', error)
+      return null
+    }
+  })
+
+  ipcMain.handle('project:set-version', async (_event, version) => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) throw new Error('No project path set')
+      const pkgPath = path.join(projectPath, 'package.json')
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
+        pkg.version = version
+        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n')
+        return { success: true }
+      }
+      throw new Error('package.json not found')
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('update:install', () => {
     autoUpdater.quitAndInstall()
+  })
+
+  // Window Controls
+  ipcMain.on('window:minimize', () => {
+    mainWindow.minimize()
+  })
+
+  ipcMain.on('window:maximize', () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  })
+
+  ipcMain.on('window:close', () => {
+    mainWindow.close()
+  })
+
+  // Dialogs
+  ipcMain.handle('dialog:open-file', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile']
+    })
+    return result
+  })
+
+  ipcMain.handle('dialog:open-folder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    })
+    return result
   })
 
 })()
