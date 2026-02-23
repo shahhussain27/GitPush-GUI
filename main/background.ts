@@ -12,7 +12,7 @@ import log from 'electron-log'
 autoUpdater.logger = log
 log.transports.file.level = 'info'
 
-const isProd = process.env.NODE_ENV === 'production'
+const isProd = app.isPackaged || process.env.NODE_ENV === 'production'
 
 if (isProd) {
   serve({ directory: 'app' })
@@ -26,6 +26,8 @@ if (isProd) {
   const mainWindow = createWindow('main', {
     width: 1200,
     height: 800,
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
@@ -323,6 +325,38 @@ if (isProd) {
 
   ipcMain.handle('update:install', () => {
     autoUpdater.quitAndInstall()
+  })
+
+  // Window Controls
+  ipcMain.on('window:minimize', () => {
+    mainWindow.minimize()
+  })
+
+  ipcMain.on('window:maximize', () => {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    } else {
+      mainWindow.maximize()
+    }
+  })
+
+  ipcMain.on('window:close', () => {
+    mainWindow.close()
+  })
+
+  // Dialogs
+  ipcMain.handle('dialog:open-file', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile']
+    })
+    return result
+  })
+
+  ipcMain.handle('dialog:open-folder', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory']
+    })
+    return result
   })
 
 })()

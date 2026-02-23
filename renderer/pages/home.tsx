@@ -25,6 +25,7 @@ export default function HomePage() {
     refreshStatus,
     applyFix,
     runManualCommand,
+    clearLogs,
     createGitHubRepo,
     removeRemote,
     remoteStatus,
@@ -117,6 +118,7 @@ export default function HomePage() {
         onSelectFolder={selectFolder} 
         terminalOutput={logs}
         onRunCommand={runManualCommand}
+        onClearTerminal={clearLogs}
         activeTab={activeSidebarTab}
         onTabChange={setActiveSidebarTab}
       >

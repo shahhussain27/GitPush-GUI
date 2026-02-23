@@ -142,6 +142,17 @@ const PublishView: React.FC<PublishViewProps> = ({ currentPath, onRefresh }) => 
         </div>
       </div>
 
+      <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-xl space-y-3">
+        <h4 className="text-xs font-bold text-amber-500 uppercase tracking-widest flex items-center gap-2">
+          <span>⚠️</span> Important: Release Artifacts
+        </h4>
+        <p className="text-xs text-gray-400 leading-relaxed">
+          The <strong>Publish</strong> button triggers your GitHub Action to build the app. 
+          If you don't use GitHub Actions, you must manually upload the <strong>.exe</strong> and <strong>latest.yml</strong> files 
+          from your local <code>dist</code> folder to the release page on GitHub for auto-updates to work.
+        </p>
+      </div>
+
       <div className="bg-gray-900/50 border border-gray-800 p-6 rounded-xl italic">
         <p className="text-xs text-gray-500 leading-relaxed">
           <strong>Note:</strong> This will commit the version change directly to your `main` branch. Ensure your working tree is clean before publishing.

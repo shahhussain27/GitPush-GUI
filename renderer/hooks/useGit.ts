@@ -221,6 +221,10 @@ export const useGit = () => {
     }
   }
 
+  const clearLogs = () => {
+    setLogs([])
+  }
+
   return {
     currentPath,
     isRepo,
@@ -240,6 +244,7 @@ export const useGit = () => {
     removeRemote,
     applyFix,
     runManualCommand,
+    clearLogs,
     refreshRemotes,
     refreshStatus,
     remoteStatus,
