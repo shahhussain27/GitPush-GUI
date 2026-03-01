@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 export const useGit = () => {
   const [currentPath, setCurrentPath] = useState<string | null>(null)
@@ -9,6 +9,27 @@ export const useGit = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [currentError, setCurrentError] = useState<any | null>(null)
   const [remoteStatus, setRemoteStatus] = useState<{ ahead: number; behind: number; metadata: any | null }>({ ahead: 0, behind: 0, metadata: null })
+  const [conflictedFiles, setConflictedFiles] = useState<string[]>([])
+
+  // Persistent GitHub PAT
+  const [githubPat, setGithubPatState] = useState<string>('')
+
+  // Load PAT on hook initialization
+  useEffect(() => {
+    window.ipc.invoke('store:get-pat').then((pat) => {
+      if (pat) setGithubPatState(pat as string)
+    }).catch(console.error)
+  }, [])
+
+  const setGithubPat = async (token: string) => {
+    await window.ipc.invoke('store:set-pat', token)
+    setGithubPatState(token)
+  }
+
+  const deleteGithubPat = async () => {
+    await window.ipc.invoke('store:delete-pat')
+    setGithubPatState('')
+  }
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`])
@@ -37,12 +58,14 @@ export const useGit = () => {
       const repoStatus = await window.ipc.invoke('git:is-repo')
       setIsRepo(repoStatus)
       if (repoStatus) {
-        const [stat, br] = await Promise.all([
+        const [stat, br, conflicts] = await Promise.all([
           window.ipc.invoke('git:status'),
-          window.ipc.invoke('git:branch')
+          window.ipc.invoke('git:branch'),
+          window.ipc.invoke('git:conflicts')
         ])
         setStatus(stat as string)
         setBranch(br as string)
+        setConflictedFiles(conflicts as string[])
       }
     } catch (e: any) {
       addLog(`Error: ${e.message}`)
@@ -76,6 +99,30 @@ export const useGit = () => {
       }
     } catch (e: any) {
       addLog(`Error initializing: ${e.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const gitClone = async (url: string, targetDirectory: string) => {
+    setIsLoading(true)
+    setCurrentError(null)
+    try {
+      addLog(`Cloning repository ${url} into ${targetDirectory}...`)
+      const result = await window.ipc.invoke('git:clone', url, targetDirectory)
+      if (result.error) {
+        setCurrentError(result.error)
+        addLog(`Error cloning: ${result.error.message}`)
+        return false
+      } else {
+        addLog('Repository cloned successfully')
+        // Automatically set the new path and refresh
+        setCurrentPath(targetDirectory)
+        return true
+      }
+    } catch (e: any) {
+      addLog(`Error cloning: ${e.message}`)
+      return false
     } finally {
       setIsLoading(false)
     }
@@ -225,6 +272,57 @@ export const useGit = () => {
     setLogs([])
   }
 
+  const abortRebase = async () => {
+    setIsLoading(true)
+    try {
+      addLog('Aborting rebase/merge operation...')
+      await window.ipc.invoke('git:abort-rebase')
+      addLog('Operation aborted successfully.')
+      await refreshStatus()
+    } catch (e: any) {
+      addLog(`Error aborting: ${e.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const continueRebase = async () => {
+    setIsLoading(true)
+    try {
+      addLog('Continuing rebase/merge operation...')
+      const result = await window.ipc.invoke('git:continue-rebase')
+      if (result.error) {
+        setCurrentError(result.error)
+        addLog(`Error continuing: ${result.error.message}`)
+      } else {
+        addLog('Operation continued successfully.')
+        await refreshStatus()
+      }
+    } catch (e: any) {
+      addLog(`Error continuing: ${e.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resolveConflict = async (file: string, strategy: 'ours' | 'theirs') => {
+    setIsLoading(true)
+    try {
+      addLog(`Resolving conflict in ${file} using '${strategy}'...`)
+      const result = await window.ipc.invoke('git:resolve-conflict', file, strategy)
+      if (result.error) {
+        addLog(`Error resolving conflict: ${result.error.message}`)
+      } else {
+        addLog(`Conflict in ${file} resolved successfully!`)
+        await refreshStatus()
+      }
+    } catch (e: any) {
+      addLog(`Error resolving conflict: ${e.message}`)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   return {
     currentPath,
     isRepo,
@@ -234,9 +332,11 @@ export const useGit = () => {
     remotes,
     isLoading,
     currentError,
+    conflictedFiles,
     setCurrentError,
     selectFolder,
     initRepo,
+    gitClone,
     commit,
     push,
     pull,
@@ -245,9 +345,15 @@ export const useGit = () => {
     applyFix,
     runManualCommand,
     clearLogs,
+    abortRebase,
+    continueRebase,
+    resolveConflict,
     refreshRemotes,
     refreshStatus,
     remoteStatus,
+    githubPat,
+    setGithubPat,
+    deleteGithubPat,
     checkRemoteUpdates,
     getRepoDetails: async (token: string, owner: string, repo: string) => {
       return await window.ipc.invoke('github:get-repo-details', { token, owner, repo });
@@ -284,6 +390,54 @@ export const useGit = () => {
         return { success: false, error: e.message }
       } finally {
         setIsLoading(false)
+      }
+    },
+    setupAutoUpdate: async (): Promise<{ success: boolean; status?: string; error?: string }> => {
+      setIsLoading(true)
+      try {
+        addLog(`Checking GitHub Actions Workflow for Auto Updates...`)
+        const result = await window.ipc.invoke('project:setup-auto-update')
+        if (result.success) {
+          if (result.status === 'exists') {
+            addLog(`✅ Auto Update configuration (.github/workflows/release.yml) is already up-to-date!`)
+          } else {
+            addLog(`✅ Auto Update configuration (.github/workflows/release.yml) ${result.status}!`)
+            addLog(`Please commit and push the new files to trigger the pipeline on your next release.`)
+          }
+          await refreshStatus()
+          return { success: true, status: result.status }
+        } else {
+          addLog(`❌ Failed to generate configuration: ${result.error}`)
+          return { success: false, error: result.error }
+        }
+      } catch (e: any) {
+        addLog(`Unexpected error: ${e.message}`)
+        return { success: false, error: e.message }
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    checkAutoUpdate: async (): Promise<{ success: boolean; status?: string; error?: string }> => {
+      try {
+        return await window.ipc.invoke('project:check-auto-update')
+      } catch (e: any) {
+        return { success: false, error: e.message }
+      }
+    },
+    getLatestRemoteTag: async (): Promise<string | null> => {
+      try {
+        const res = await window.ipc.invoke('project:get-latest-tag')
+        return res.success ? res.tag : null
+      } catch (e: any) {
+        return null
+      }
+    },
+    getCommitDelta: async (tag: string): Promise<number> => {
+      try {
+        const res = await window.ipc.invoke('project:get-commit-delta', tag)
+        return res.success ? res.delta : 0
+      } catch (e: any) {
+        return 0
       }
     }
   }

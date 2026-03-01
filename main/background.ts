@@ -8,9 +8,15 @@ import { gitignoreService } from './services/gitignoreService'
 import { GitHubService } from './services/githubService'
 import { autoUpdater } from 'electron-updater'
 import log from 'electron-log'
+import Store from 'electron-store'
 
 autoUpdater.logger = log
 log.transports.file.level = 'info'
+
+const store = new Store({
+  name: 'gitpush-config',
+  encryptionKey: 'gitpush-secure-key-2026' // Basic obfuscation for PAT
+})
 
 const isProd = app.isPackaged || process.env.NODE_ENV === 'production'
 
@@ -20,7 +26,7 @@ if (isProd) {
   app.setPath('userData', `${app.getPath('userData')} (development)`)
 }
 
-;(async () => {
+; (async () => {
   await app.whenReady()
 
   // --- Splash Screen ---
@@ -37,7 +43,11 @@ if (isProd) {
     }
   })
 
-  splashWindow.loadFile(path.join(__dirname, 'splash.html'))
+  const splashPath = isProd
+    ? path.join(process.resourcesPath, 'resources', 'splash.html')
+    : path.join(app.getAppPath(), 'resources', 'splash.html')
+
+  splashWindow.loadFile(splashPath)
 
   const mainWindow = createWindow('main', {
     width: 1200,
@@ -110,6 +120,21 @@ if (isProd) {
     return folderPath
   })
 
+  // PAT Storage Handlers
+  ipcMain.handle('store:get-pat', () => {
+    return store.get('github.pat') || null
+  })
+
+  ipcMain.handle('store:set-pat', (_event, token: string) => {
+    store.set('github.pat', token)
+    return true
+  })
+
+  ipcMain.handle('store:delete-pat', () => {
+    store.delete('github.pat')
+    return true
+  })
+
   ipcMain.handle('git:is-repo', async () => {
     return await gitService.isRepo()
   })
@@ -142,6 +167,10 @@ if (isProd) {
     return await gitService.pull(remote, branch)
   })
 
+  ipcMain.handle('git:clone', async (_event, url, targetDirectory) => {
+    return await gitService.clone(url, targetDirectory)
+  })
+
   ipcMain.handle('git:remotes', async () => {
     return await gitService.getRemotes()
   })
@@ -152,6 +181,22 @@ if (isProd) {
 
   ipcMain.handle('git:remote-remove', async (_event, name) => {
     return await gitService.removeRemote(name)
+  })
+
+  ipcMain.handle('git:conflicts', async () => {
+    return await gitService.getConflictedFiles()
+  })
+
+  ipcMain.handle('git:abort-rebase', async () => {
+    return await gitService.abortRebase()
+  })
+
+  ipcMain.handle('git:continue-rebase', async () => {
+    return await gitService.continueRebase()
+  })
+
+  ipcMain.handle('git:resolve-conflict', async (_event, file, strategy) => {
+    return await gitService.resolveConflict(file, strategy)
   })
 
   ipcMain.handle('git:fetch', async () => {
@@ -207,16 +252,16 @@ if (isProd) {
     try {
       // 1. Fetch remote changes
       await gitService.execute(['fetch']);
-      
+
       // 2. Get status (ahead/behind)
       const status = await gitService.getStatusDetails();
-      
+
       // 3. If behind, get metadata
       let metadata = null;
       if (status.behind > 0) {
         metadata = await gitService.getRemoteMetadata();
       }
-      
+
       return {
         success: true,
         ...status,
@@ -235,20 +280,20 @@ if (isProd) {
     try {
       // 1. Create repo on GitHub
       const repoInfo = await GitHubService.createRepo(token, name, isPrivate);
-      
+
       // 2. Add remote origin
       // Check if remote already exists
       const existingRemotes = await gitService.getRemotes();
       if (existingRemotes.includes('origin')) {
         await gitService.execute(['remote', 'remove', 'origin']);
       }
-      
+
       await gitService.addRemote('origin', repoInfo.clone_url);
-      
+
       // 3. Initial push
       const currentBranch = await gitService.getCurrentBranch();
       const pushResult = await gitService.push('origin', currentBranch);
-      
+
       return {
         success: true,
         repoInfo,
@@ -343,6 +388,119 @@ if (isProd) {
         return { success: true }
       }
       throw new Error('package.json not found')
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+  ipcMain.handle('project:check-auto-update', async () => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) return { success: true, status: 'missing' }
+
+      const workflowPath = path.join(projectPath, '.github', 'workflows', 'release.yml')
+      if (!fs.existsSync(workflowPath)) return { success: true, status: 'missing' }
+
+      const content = fs.readFileSync(workflowPath, 'utf8')
+      const hasTags = content.includes("tags:") && content.includes("- 'v*.*.*'")
+      const hasRelease = content.includes("action-gh-release")
+
+      if (hasTags && hasRelease) {
+        return { success: true, status: 'configured' }
+      }
+
+      return { success: true, status: 'update-required' }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('project:get-latest-tag', async () => {
+    try {
+      const tag = await gitService.getLatestTag()
+      return { success: true, tag }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('project:get-commit-delta', async (_event, tag: string) => {
+    try {
+      const delta = await gitService.getCommitDelta(tag)
+      return { success: true, delta }
+    } catch (error: any) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('project:setup-auto-update', async () => {
+    try {
+      const fs = require('fs')
+      const path = require('path')
+      const projectPath = gitService.getPath()
+      if (!projectPath) throw new Error('No project path set')
+
+      const githubDir = path.join(projectPath, '.github', 'workflows')
+      if (!fs.existsSync(githubDir)) {
+        fs.mkdirSync(githubDir, { recursive: true })
+      }
+
+      const workflowPath = path.join(githubDir, 'release.yml')
+      const workflowContent = `name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Application
+        run: npm run build
+        env:
+          GH_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/*.exe
+            dist/latest.yml
+            dist/*.blockmap
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+`
+      let status = 'created'
+      if (fs.existsSync(workflowPath)) {
+        const existingContent = fs.readFileSync(workflowPath, 'utf8')
+        if (existingContent.trim() === workflowContent.trim()) {
+          return { success: true, status: 'exists' }
+        }
+        status = 'updated'
+      }
+
+      fs.writeFileSync(workflowPath, workflowContent)
+
+      return { success: true, status }
     } catch (error: any) {
       return { success: false, error: error.message }
     }

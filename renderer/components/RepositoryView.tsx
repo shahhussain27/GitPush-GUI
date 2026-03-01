@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react'
 import GitHubModal from './GitHubModal'
 import RemoteUpdateModal from './RemoteUpdateModal'
 import CollaborationView from './CollaborationView'
-import { 
-  GitBranch, 
-  Download, 
-  Upload, 
-  Save, 
-  Activity, 
-  Boxes, 
-  FileCode, 
-  Globe, 
-  Users, 
-  AlertCircle, 
-  CheckCircle, 
+import {
+  GitBranch,
+  Download,
+  Upload,
+  Save,
+  Activity,
+  Boxes,
+  FileCode,
+  Globe,
+  Users,
+  AlertCircle,
+  CheckCircle,
   Wand2,
   RefreshCw,
   Tractor,
@@ -31,6 +31,7 @@ interface RepositoryViewProps {
   branch: string
   isRepo: boolean
   onInit: () => void
+  onClone?: (url: string, targetDirectory: string) => Promise<boolean>
   onCommit: (message: string) => void
   onPush: () => void
   onPull: () => void
@@ -40,18 +41,28 @@ interface RepositoryViewProps {
   onGitHubCreate?: (token: string, name: string, isPrivate: boolean) => Promise<{ success: boolean; error?: string }>
   onRemoveRemote?: (name: string) => void
   remoteStatus?: { ahead: number; behind: number; metadata: any | null }
-  
+
+  // Merge Conflict Props
+  conflictedFiles?: string[]
+  onAbortRebase?: () => Promise<void>
+  onContinueRebase?: () => Promise<void>
+  onResolveConflict?: (file: string, strategy: 'ours' | 'theirs') => Promise<void>
+
   // Collaboration props
   onListCollaborators?: (token: string, owner: string, repo: string) => Promise<{ success: boolean; collaborators?: any[]; error?: string }>
   onAddCollaborator?: (token: string, owner: string, repo: string, username: string, permission: string) => Promise<{ success: boolean; error?: string }>
   onRemoveCollaborator?: (token: string, owner: string, repo: string, username: string) => Promise<{ success: boolean; error?: string }>
   onGetRepoDetails?: (token: string, owner: string, repo: string) => Promise<{ success: boolean; details?: any; error?: string }>
   onAddTeamRepo?: (token: string, org: string, team: string, owner: string, repo: string, permission: string) => Promise<{ success: boolean; error?: string }>
+  githubPat?: string
+  setGithubPat?: (token: string) => Promise<void>
+  deleteGithubPat?: () => Promise<void>
 }
 
-const RepositoryView: React.FC<RepositoryViewProps> = ({ 
-  currentPath, status, branch, isRepo, onInit, onCommit, onPush, onPull, isLoading, currentError, onApplyFix, onGitHubCreate, onRemoveRemote, remoteStatus,
-  onListCollaborators, onAddCollaborator, onRemoveCollaborator, onGetRepoDetails, onAddTeamRepo
+const RepositoryView: React.FC<RepositoryViewProps> = ({
+  currentPath, status, branch, isRepo, onInit, onClone, onCommit, onPush, onPull, isLoading, currentError, onApplyFix, onGitHubCreate, onRemoveRemote, remoteStatus,
+  conflictedFiles = [], onAbortRebase, onContinueRebase, onResolveConflict,
+  onListCollaborators, onAddCollaborator, onRemoveCollaborator, onGetRepoDetails, onAddTeamRepo, githubPat, setGithubPat, deleteGithubPat
 }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'lfs' | 'gitignore' | 'remotes' | 'collaboration'>('status')
   const [commitMessage, setCommitMessage] = useState('')
@@ -63,6 +74,8 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
   const [originUrl, setOriginUrl] = useState('')
   const [remotes, setRemotes] = useState('')
   const [isRemoteModalOpen, setIsRemoteModalOpen] = useState(false)
+  const [initMode, setInitMode] = useState<'init' | 'clone'>('init')
+  const [cloneUrl, setCloneUrl] = useState('')
 
   const isBehind = (remoteStatus?.behind || 0) > 0
 
@@ -116,25 +129,87 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
 
   if (!isRepo) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center space-y-6">
-        <div className="bg-gray-900 p-12 rounded-3xl border border-gray-800 shadow-2xl max-w-lg animate-in zoom-in-95 duration-500">
-          <div className="bg-blue-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Tractor className="size-10 text-blue-500" />
-          </div>
-          <h2 className="text-2xl font-black text-white mb-3">Initialize Workspace</h2>
-          <p className="text-gray-400 text-sm mb-8 leading-relaxed">
-            This folder isn't under version control yet. Transform it into a Git repository to start tracking changes and collaborate.
-          </p>
-          <div className="flex flex-col gap-4">
-            <Button 
-              size="lg"
-              onClick={onInit}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold h-12 shadow-lg shadow-blue-900/40 gap-2"
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="bg-gray-900 border border-gray-800 rounded-3xl shadow-2xl max-w-xl w-full flex flex-col overflow-hidden">
+          <div className="flex text-[10px] font-black uppercase tracking-widest text-gray-400 bg-gray-950/50 border-b border-gray-800/50">
+            <button
+              onClick={() => setInitMode('init')}
+              className={cn("flex-1 py-4 hover:text-white transition-colors border-b-2", initMode === 'init' ? "border-blue-500 text-white bg-blue-500/5" : "border-transparent")}
             >
-              <GitBranch className="size-5" />
-              Init Git Repository
-            </Button>
-            <p className="text-[10px] text-gray-600 font-mono tracking-tighter">EXECUTE: git init</p>
+              Initialize Local
+            </button>
+            <button
+              onClick={() => setInitMode('clone')}
+              className={cn("flex-1 py-4 hover:text-white transition-colors border-b-2", initMode === 'clone' ? "border-blue-500 text-white bg-blue-500/5" : "border-transparent")}
+            >
+              Clone Remote
+            </button>
+          </div>
+          <div className="p-10 space-y-8">
+            {initMode === 'init' ? (
+              <div className="space-y-6">
+                <div className="bg-blue-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Tractor className="size-10 text-blue-500" />
+                </div>
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-black text-white">Initialize Workspace</h2>
+                  <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto">
+                    This folder isn't under version control yet. Transform it into a Git repository to start tracking changes.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-4">
+                  <Button
+                    size="lg"
+                    onClick={onInit}
+                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold h-14 shadow-lg shadow-blue-900/40 gap-3 rounded-2xl"
+                  >
+                    <GitBranch className="size-5" />
+                    Init Git Repository
+                  </Button>
+                  <p className="text-[10px] text-gray-600 font-mono tracking-tighter">EXECUTE: git init</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 text-left">
+                <div className="space-y-3 mb-8 text-center border-b border-gray-800/50 pb-8">
+                  <div className="bg-blue-500/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Download className="size-10 text-blue-500" />
+                  </div>
+                  <h2 className="text-2xl font-black text-white">Clone Repository</h2>
+                  <p className="text-gray-400 text-sm leading-relaxed max-w-sm mx-auto">
+                    Download an existing project from GitHub, GitLab, or any Git remote into the current folder.
+                  </p>
+                </div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 pl-1">Repository URL</label>
+                    <input
+                      type="text"
+                      value={cloneUrl}
+                      onChange={(e) => setCloneUrl(e.target.value)}
+                      placeholder="https://github.com/user/repo.git"
+                      className="w-full bg-gray-950/50 border border-gray-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all font-mono placeholder:text-gray-800"
+                    />
+                  </div>
+                  <div className="bg-blue-500/5 p-4 rounded-xl border border-blue-500/10 text-xs text-blue-400/80 font-medium">
+                    This will clone the repository into <span className="font-mono text-white/90">{currentPath}</span>. If the repository creates a new folder, you may need to open that new folder afterwards.
+                  </div>
+                  <Button
+                    size="lg"
+                    disabled={!cloneUrl}
+                    onClick={() => {
+                      if (onClone && cloneUrl) {
+                        onClone(cloneUrl, currentPath)
+                      }
+                    }}
+                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold h-14 shadow-lg shadow-blue-900/40 gap-3 rounded-2xl mt-4"
+                  >
+                    <Download className="size-5" />
+                    Clone Repository
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -172,14 +247,14 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
               <p className="text-gray-300 text-sm leading-relaxed mb-6 font-medium">
                 {currentError.message}
               </p>
-              
+
               {currentError.safeFixAvailable && currentError.fixCommand && (
                 <div className="space-y-4">
                   <div className="bg-gray-950 p-4 rounded-xl border border-gray-800/50 font-mono text-[11px] text-blue-400 flex items-center gap-3">
                     <span className="text-gray-600 shrink-0">$</span>
                     {currentError.fixCommand}
                   </div>
-                  <Button 
+                  <Button
                     onClick={() => onApplyFix?.(currentError.fixCommand)}
                     className="bg-green-600 hover:bg-green-500 text-white font-bold gap-2 shadow-lg shadow-green-900/20"
                   >
@@ -195,6 +270,67 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   Manual intervention required
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merge Conflict Resolution Banner */}
+      {conflictedFiles.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 p-6 rounded-2xl animate-in fade-in duration-500 mb-6">
+          <div className="flex items-start gap-5">
+            <div className="bg-amber-500 p-2.5 rounded-xl shadow-lg shadow-amber-900/20 shrink-0">
+              <AlertCircle className="size-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-amber-500 font-black text-lg mb-2">Merge Conflict Detected</h3>
+              <p className="text-amber-400/80 text-sm mb-4">
+                The current operation resulted in conflicts. You must resolve these before continuing.
+              </p>
+
+              <div className="space-y-4 mb-6">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-500/70">Conflicted Files</h4>
+                <div className="bg-gray-950/50 rounded-xl overflow-hidden border border-amber-500/20">
+                  {conflictedFiles.map(file => (
+                    <div key={file} className="flex flex-col sm:flex-row items-center justify-between p-3 border-b border-amber-500/10 last:border-b-0 gap-4">
+                      <span className="text-amber-200 font-mono text-sm break-all">{file}</span>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          onClick={() => onResolveConflict?.(file, 'ours')}
+                          className="bg-gray-800 hover:bg-gray-700 text-xs h-8 text-amber-500 border border-amber-500/30"
+                        >
+                          Keep Ours (Current)
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => onResolveConflict?.(file, 'theirs')}
+                          className="bg-gray-800 hover:bg-gray-700 text-xs h-8 text-amber-500 border border-amber-500/30"
+                        >
+                          Keep Theirs (Incoming)
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-4 border-t border-amber-500/20 pt-6">
+                <Button
+                  onClick={onContinueRebase}
+                  className="bg-amber-600 hover:bg-amber-500 text-white font-bold h-12 flex-1"
+                >
+                  <Wand2 className="size-4 mr-2" />
+                  Continue After Resolving
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={onAbortRebase}
+                  className="bg-transparent border-red-500/50 text-red-500 hover:bg-red-500/10 hover:text-red-400 font-bold h-12 flex-1"
+                >
+                  Abort Merge
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -220,31 +356,33 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
         </div>
 
         <div className="flex gap-3">
-          <Button 
+          <Button
             variant="outline"
-            onClick={onPull} 
+            onClick={onPull}
+            disabled={!hasOrigin}
             className={cn(
               "flex-1 h-full rounded-2xl text-sm border-2 font-black gap-2 transition-all",
-              isBehind 
-                ? 'bg-amber-600/10 hover:bg-amber-600/20 border-amber-500 text-amber-500 animate-pulse' 
+              !hasOrigin ? 'opacity-50 cursor-not-allowed' : '',
+              isBehind
+                ? 'bg-amber-600/10 hover:bg-amber-600/20 border-amber-500 text-amber-500 animate-pulse'
                 : 'bg-gray-900/40 hover:bg-gray-800 border-gray-800 text-gray-300'
             )}
           >
             <Download className="size-5" />
-            {isBehind ? 'Pull Required' : 'Sync Pull'}
+            {!hasOrigin ? 'No Remote' : (isBehind ? 'Pull Required' : 'Sync Pull')}
           </Button>
-          <Button 
-            disabled={isBehind}
-            onClick={onPush} 
+          <Button
+            disabled={isBehind || !hasOrigin}
+            onClick={onPush}
             className={cn(
               "flex-1 h-full rounded-2xl text-sm font-black gap-2 shadow-xl transition-all",
-              isBehind 
-                ? 'bg-gray-800 text-gray-600 cursor-not-allowed grayscale' 
+              (isBehind || !hasOrigin)
+                ? 'bg-gray-800 text-gray-600 cursor-not-allowed grayscale'
                 : 'bg-blue-600 hover:bg-blue-500 shadow-blue-600/20 text-white'
             )}
           >
             <Upload className="size-5" />
-            Push Changes
+            {!hasOrigin ? 'No Remote' : 'Push Changes'}
           </Button>
         </div>
       </div>
@@ -268,8 +406,8 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Working Directory Status</span>
                 </div>
                 <div className="flex items-center gap-2">
-                   <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                   <span className="text-[9px] text-blue-400 font-black uppercase">Live Monitoring</span>
+                  <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                  <span className="text-[9px] text-blue-400 font-black uppercase">Live Monitoring</span>
                 </div>
               </div>
               <div className="p-6 font-mono text-xs text-gray-300 overflow-auto bg-gray-950/30 h-[400px] custom-scrollbar selection:bg-blue-500/30">
@@ -298,7 +436,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   Snap Status
                 </h3>
                 <div className="relative">
-                  <textarea 
+                  <textarea
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
                     placeholder="Describe your progress..."
@@ -310,7 +448,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                 </div>
               </div>
               <div className="space-y-4">
-                <Button 
+                <Button
                   disabled={!commitMessage}
                   onClick={() => {
                     onCommit(commitMessage)
@@ -318,8 +456,8 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   }}
                   className={cn(
                     "w-full h-12 rounded-2xl font-black transition-all gap-2 text-sm shadow-lg",
-                    commitMessage 
-                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20' 
+                    commitMessage
+                      ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20'
                       : 'bg-gray-800 text-gray-500 cursor-not-allowed border border-gray-700'
                   )}
                 >
@@ -339,7 +477,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
         {activeTab === 'lfs' && (
           <div className="bg-gray-900 rounded-3xl border border-gray-800 p-10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-500 overflow-hidden relative">
             <div className="absolute -top-10 -right-10 opacity-5 scale-150 rotate-12">
-               <Boxes className="size-64 text-blue-500" />
+              <Boxes className="size-64 text-blue-500" />
             </div>
             <div className="flex items-start gap-8 max-w-3xl relative z-10">
               <div className="bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20 shadow-xl">
@@ -348,10 +486,10 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
               <div>
                 <h3 className="text-2xl font-black text-white mb-3">Git Large File Storage</h3>
                 <p className="text-gray-400 text-sm mb-8 leading-relaxed font-medium">
-                  Git LFS replaces large files such as audio samples, videos, and datasets with text pointers 
+                  Git LFS replaces large files such as audio samples, videos, and datasets with text pointers
                   inside Git, storing contents on a remote server. Recommended for files &gt;50MB.
                 </p>
-                
+
                 {!isLFSInstalled ? (
                   <div className="bg-red-500/10 border border-red-500/20 p-5 rounded-2xl text-red-400 text-xs mb-8 flex items-center gap-4 font-bold uppercase tracking-widest">
                     <AlertCircle className="size-5" />
@@ -365,7 +503,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Button 
+                  <Button
                     variant="outline"
                     onClick={async () => {
                       await window.ipc.invoke('lfs:install')
@@ -376,7 +514,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                     <Download className="size-4" />
                     Initialize LFS
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => {
                       const pattern = prompt('Enter file pattern to track (e.g. *.png, assets/*):')
                       if (pattern) {
@@ -402,7 +540,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                 <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Exclusion manifests (.gitignore)</span>
               </div>
               <div className="flex gap-3">
-                <select 
+                <select
                   onChange={(e) => generateGitignore(e.target.value)}
                   className="bg-gray-800/50 border border-gray-700/50 rounded-xl px-4 py-1.5 text-[10px] text-gray-300 outline-none focus:ring-2 focus:ring-blue-500/30 transition-all font-black uppercase tracking-tighter"
                   defaultValue=""
@@ -412,7 +550,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   <option value="unity">Unity / Game Dev</option>
                   <option value="generic">Minimal / Generic</option>
                 </select>
-                <Button 
+                <Button
                   size="sm"
                   onClick={saveGitignore}
                   className="bg-green-600 hover:bg-green-500 text-white font-black text-[10px] rounded-xl px-5 uppercase tracking-widest shadow-lg shadow-green-900/20"
@@ -421,7 +559,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                 </Button>
               </div>
             </div>
-            <textarea 
+            <textarea
               value={gitignoreContent}
               onChange={(e) => setGitignoreContent(e.target.value)}
               className="w-full h-[450px] bg-gray-950/40 p-8 font-mono text-xs text-gray-300 outline-none resize-none leading-relaxed custom-scrollbar selection:bg-blue-500/30"
@@ -436,7 +574,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
               <Globe className="size-6 text-blue-500" />
               <h3 className="text-xl font-black text-white">Upstream Control</h3>
             </div>
-            
+
             {hasOrigin ? (
               <div className="space-y-8">
                 <div className="bg-blue-600/5 border border-blue-600/10 p-8 rounded-3xl flex justify-between items-center relative overflow-hidden group">
@@ -455,7 +593,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                       <p className="text-lg font-mono font-bold text-white tracking-tight">{originUrl}</p>
                     </div>
                   </div>
-                  <Button 
+                  <Button
                     variant="ghost"
                     onClick={async () => {
                       if (confirm('Are you sure you want to remove this remote?')) {
@@ -468,14 +606,14 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                     Disconnect
                   </Button>
                 </div>
-                
+
                 <div className="bg-gray-950/50 rounded-2xl p-6 border border-gray-800/50 font-mono text-xs text-gray-400 flex flex-col gap-4">
-                   <div className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-600 tracking-[0.2em]">
-                     <Activity className="size-3" /> Raw Transport Details
-                   </div>
-                   <pre className="whitespace-pre-wrap leading-relaxed opacity-60">
-                     {remotes}
-                   </pre>
+                  <div className="flex items-center gap-2 text-[10px] font-black uppercase text-gray-600 tracking-[0.2em]">
+                    <Activity className="size-3" /> Raw Transport Details
+                  </div>
+                  <pre className="whitespace-pre-wrap leading-relaxed opacity-60">
+                    {remotes}
+                  </pre>
                 </div>
               </div>
             ) : (
@@ -490,15 +628,15 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                   <div className="space-y-4">
                     <div>
                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Remote Repository Address</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={remoteUrl}
                         onChange={(e) => setRemoteUrl(e.target.value)}
                         placeholder="https://github.com/vibe/nova-core.git"
                         className="w-full bg-gray-950/50 border border-gray-700/50 rounded-2xl p-4 text-sm focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all text-white font-mono placeholder:text-gray-800"
                       />
                     </div>
-                    <Button 
+                    <Button
                       onClick={async () => {
                         if (!remoteUrl) return
                         await window.ipc.invoke('git:add-remote', 'origin', remoteUrl)
@@ -512,7 +650,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
 
                     <Separator className="bg-gray-800/50 my-6" />
 
-                    <Button 
+                    <Button
                       onClick={() => setIsGitHubModalOpen(true)}
                       className="w-full h-12 bg-white hover:bg-gray-100 text-gray-950 rounded-2xl font-black transition-all shadow-lg flex items-center justify-center gap-3 text-sm"
                     >
@@ -521,7 +659,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-col items-center justify-center text-center p-10 border-2 border-dashed border-gray-800 rounded-3xl bg-gray-950/10 group hover:border-blue-500/20 transition-all duration-700">
                   <div className="bg-gray-800/30 w-24 h-24 rounded-full flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                     <Globe className="size-10 text-gray-700 group-hover:text-blue-500/50 transition-colors" />
@@ -535,25 +673,28 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
         )}
 
         {activeTab === 'collaboration' && (
-          <CollaborationView 
+          <CollaborationView
             currentPath={currentPath}
             onListCollaborators={onListCollaborators!}
             onAddCollaborator={onAddCollaborator!}
             onRemoveCollaborator={onRemoveCollaborator!}
             onGetRepoDetails={onGetRepoDetails!}
             onAddTeamRepo={onAddTeamRepo!}
+            githubPat={githubPat}
+            setGithubPat={setGithubPat}
+            deleteGithubPat={deleteGithubPat}
           />
         )}
       </div>
 
-      <GitHubModal 
+      <GitHubModal
         isOpen={isGitHubModalOpen}
         onClose={() => setIsGitHubModalOpen(false)}
         folderName={currentPath.split(/[\\/]/).pop() || ''}
         onCreate={onGitHubCreate || (async () => ({ success: false, error: 'GitHub module not connected' }))}
       />
 
-      <RemoteUpdateModal 
+      <RemoteUpdateModal
         isOpen={isRemoteModalOpen}
         onClose={() => setIsRemoteModalOpen(false)}
         onPull={() => {
@@ -568,12 +709,12 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
 }
 
 const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string; icon: React.ReactNode }> = ({ active, onClick, label, icon }) => (
-  <button 
+  <button
     onClick={onClick}
     className={cn(
       "py-5 text-[10px] font-black border-b-[3px] transition-all px-2 flex items-center gap-2 uppercase tracking-widest",
-      active 
-        ? "border-blue-500 text-white" 
+      active
+        ? "border-blue-500 text-white"
         : "border-transparent text-gray-500 hover:text-gray-300"
     )}
   >

@@ -1,0 +1,66 @@
+# GitPush GUI Documentation
+
+## 1. Overview
+GitPush GUI is a modern, cross-platform desktop application built to simplify Git repository management. It provides a clean, visual interface for performing standard Git operations, managing GitHub repositories, and configuring advanced Git features like Git LFS.
+
+## 2. Tech Stack
+The application is built using a modern desktop web-stack:
+- **Core Framework:** Electron (for native desktop capabilities and IPC)
+- **Frontend Framework:** Next.js with React (using Nextron to glue Next.js and Electron)
+- **Styling:** Tailwind CSS along with `tailwindcss-animate` for modern, responsive, and animated UIs.
+- **UI Components:** Radix UI primitives (Dialog, Dropdown Menu, Scroll Area, Tabs, Tooltip) wrapped in accessible React components along with `class-variance-authority`, `clsx`, and `tailwind-merge` for style management.
+- **Icons:** Lucide React
+- **Language:** TypeScript across both main and renderer processes.
+- **Others:** `electron-updater` for auto-updates, `electron-store` for persistent user settings, and `electron-log` for application logging.
+
+## 3. Architecture
+The application follows standard Electron architecture:
+- **Main Process (`main/`):** Hands Node.js-level integrations, native desktop windows, file dialogs, auto-updating, and spawning child processes to interact with the local Git CLI.
+- **Renderer Process (`renderer/`):** Holds the Next.js React frontend, utilizing a custom `useGit` hook to communicate with the Main process via established IPC (Inter-Process Communication) channels.
+
+## 4. Key Services & Methods (Main Process)
+The core logic is modularized into several services:
+
+### GitService (`gitService.ts`)
+Handles executing raw `git` CLI commands via Node's `child_process.spawn`.
+- `isRepo()`: Checks if the current path is a valid git repository.
+- `getStatus()`: Gets short status of modified/untracked files.
+- `getCurrentBranch()`: Returns the currently checked-out branch.
+- `init()`: Initializes a new git repository.
+- `add(files)`: Stages files for commit.
+- `commit(message)`: Commits staged changes.
+- `push(remote, branch)`: Pushes commits to a remote.
+- `pull(remote, branch)`: Pulls changes from a remote.
+- `fetch()`: Fetches remote changes without merging.
+- `getRemotes()` / `addRemote()` / `removeRemote()`: Manage remote URLs.
+- `getLog()`: Retrieves commit history in a formatted structure.
+- `getConfig()` / `setConfig()`: Manage global/local git configurations.
+- `getStatusDetails()`: Gets ahead/behind counts relative to upstream.
+
+### GitHubService (`githubService.ts`)
+Integrates with the GitHub API for remote repository management.
+- `createRepo(token, name, isPrivate)`: Creates a new repository on GitHub.
+- `getRepoDetails(token, owner, repo)`: Fetches metadata for a specific repository.
+- `listCollaborators()` / `addCollaborator()` / `removeCollaborator()`: Manage repository access.
+- `addRepoToTeam()`: Assigns a repository to a GitHub organization team.
+
+### LFSService (`lfsService.ts`)
+Handles Git Large File Storage operations.
+- `isLFSInstalled()`: Verifies if git-lfs is available on the system.
+- `install()`: Runs `git lfs install`.
+- `track(pattern)`: Tracks specific file patterns via `git lfs track`.
+
+### GitignoreService (`gitignoreService.ts`)
+Manages the `.gitignore` file.
+- `generate(path, type)`: Generates a template `.gitignore` based on the project type.
+- `read(path)`: Reads the current `.gitignore` contents.
+- `save(path, content)`: Writes string content to `.gitignore`.
+
+## 5. UI & Functionality (Renderer Process)
+The frontend is driven by `home.tsx` and divided into several views:
+- **Repository View (`RepositoryView.tsx`):** Displays current changes, branch information, ahead/behind status, and offers quick actions to stage, commit, push, and pull. Contains visual diffs and change tracking.
+- **History View (`HistoryView.tsx`):** Shows the git commit log visually.
+- **Publish View (`PublishView.tsx`):** Allows users to publish their local repository directly to GitHub using a personal access token.
+- **Settings View (`SettingsView.tsx`):** Manages user configurations, Git global config, and application-specific settings.
+
+The UI relies heavily on the `useGit` custom hook, which exposes all the Git and GitHub functionalities from the Main process to the React components.

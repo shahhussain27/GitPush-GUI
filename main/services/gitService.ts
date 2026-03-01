@@ -60,9 +60,9 @@ class GitService {
 
       process.on('close', (code) => {
         if (onClose) onClose(code);
-        
+
         const detectedError = code !== 0 ? GitErrorHandler.detect(stderr || stdout, context) : null;
-        
+
         resolve({
           stdout,
           stderr,
@@ -115,6 +115,28 @@ class GitService {
     return await this.execute(['fetch']);
   }
 
+  async clone(url: string, targetPath: string): Promise<ExecuteResult> {
+    // To clone into a specific directory, we don't use this.currentPath as cwd 
+    // unless targetPath is relative. We can just spawn git clone url targetPath directly.
+    return new Promise((resolve) => {
+      const process = spawn('git', ['clone', url, targetPath]);
+      let stdout = '';
+      let stderr = '';
+
+      process.stdout.on('data', (data) => { stdout += data.toString(); });
+      process.stderr.on('data', (data) => { stderr += data.toString(); });
+
+      process.on('close', (code) => {
+        resolve({
+          stdout,
+          stderr,
+          exitCode: code,
+          error: code !== 0 ? { type: 'CLONE_ERROR', detected: true, message: stderr, safeFixAvailable: false } : null
+        });
+      });
+    });
+  }
+
   async getRemotes(): Promise<string> {
     const result = await this.execute(['remote', '-v']);
     return result.stdout;
@@ -142,6 +164,36 @@ class GitService {
     return await this.execute(['remote', 'remove', name]);
   }
 
+  async getConflictedFiles(): Promise<string[]> {
+    // U = Unmerged
+    const result = await this.execute(['status', '--porcelain']);
+    if (result.stdout) {
+      return result.stdout.split('\n')
+        .filter(line => line.startsWith('UU') || line.startsWith('AA') || line.startsWith('DD') || line.startsWith('AU') || line.startsWith('UA') || line.startsWith('DU') || line.startsWith('UD'))
+        .map(line => line.substring(3).trim());
+    }
+    return [];
+  }
+
+  async abortRebase(): Promise<ExecuteResult> {
+    return await this.execute(['rebase', '--abort']);
+  }
+
+  async continueRebase(): Promise<ExecuteResult> {
+    return await this.execute(['rebase', '--continue']);
+  }
+
+  async resolveConflict(file: string, strategy: 'ours' | 'theirs'): Promise<ExecuteResult> {
+    await this.execute(['checkout', `--${strategy}`, file]);
+    return await this.add(file);
+  }
+
+  async resolveConflictWithMarkers(file: string, content: string): Promise<ExecuteResult> {
+    // Usually, the UI will just save the edited file, so the user already wrote the fixed string.
+    // The service doesn't have to write to FS, the renderer/fs will. It just needs to add.
+    return await this.add(file);
+  }
+
   async getStatusDetails(): Promise<{ ahead: number, behind: number }> {
     // This command returns counts of ahead and behind commits relative to the upstream
     const result = await this.execute(['rev-list', '--left-right', '--count', 'HEAD...@{upstream}']);
@@ -150,6 +202,31 @@ class GitService {
       return { ahead: ahead || 0, behind: behind || 0 };
     }
     return { ahead: 0, behind: 0 };
+  }
+
+  async getLatestTag(): Promise<string | null> {
+    try {
+      await this.execute(['fetch', '--tags']);
+      const result = await this.execute(['describe', '--tags', '--abbrev=0']);
+      if (result.exitCode === 0 && result.stdout) {
+        return result.stdout.trim();
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getCommitDelta(tag: string): Promise<number> {
+    try {
+      const result = await this.execute(['rev-list', `${tag}..HEAD`, '--count']);
+      if (result.exitCode === 0 && result.stdout) {
+        return parseInt(result.stdout.trim(), 10) || 0;
+      }
+      return 0;
+    } catch {
+      return 0;
+    }
   }
 
   async getRemoteMetadata(): Promise<{ hash: string, author: string, message: string } | null> {

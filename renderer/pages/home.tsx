@@ -12,23 +12,28 @@ import { Card, CardContent } from "../components/ui/card"
 import { FolderOpen, Sparkles, Command, Rocket, LayoutDashboard } from 'lucide-react'
 
 export default function HomePage() {
-  const { 
-    currentPath, 
+  const {
+    currentPath,
     isRepo,
-    status, 
-    branch, 
+    status,
+    branch,
     remotes,
     logs,
     isLoading,
     selectFolder,
-    refreshStatus, 
+    refreshStatus,
     initRepo,
-    commit, 
+    gitClone,
+    commit,
     push,
     pull,
     runManualCommand,
     clearLogs,
     currentError,
+    conflictedFiles,
+    abortRebase,
+    continueRebase,
+    resolveConflict,
     applyFix,
     createGitHubRepo,
     removeRemote,
@@ -39,7 +44,14 @@ export default function HomePage() {
     addCollaborator,
     removeCollaborator,
     addTeamRepo,
-    addRemote
+    addRemote,
+    githubPat,
+    setGithubPat,
+    deleteGithubPat,
+    setupAutoUpdate,
+    checkAutoUpdate,
+    getLatestRemoteTag,
+    getCommitDelta
   } = useGit()
 
   const [activeSidebarTab, setActiveSidebarTab] = useState('Status')
@@ -64,38 +76,38 @@ export default function HomePage() {
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-cyan-500 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
             <div className="relative bg-gray-950 p-8 rounded-2xl border border-gray-800">
-              <Image 
-                src="/images/logo.png" 
-                alt="Logo" 
-                width={120} 
-                height={120} 
+              <Image
+                src="/images/logo.png"
+                alt="Logo"
+                width={120}
+                height={120}
                 className="mx-auto drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]"
               />
             </div>
           </div>
-          
+
           <div className="max-w-xl space-y-4">
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
               Modern Git <span className="text-blue-500">Simplified</span>
             </h1>
             <p className="text-lg text-gray-400 leading-relaxed">
-              Experience a cleaner, more intuitive way to manage your repositories. 
+              Experience a cleaner, more intuitive way to manage your repositories.
               Built for speed, styled for the future.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
-            <Button 
-              size="lg" 
+            <Button
+              size="lg"
               onClick={selectFolder}
               className="px-8 py-6 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 gap-3"
             >
               <FolderOpen className="size-5" />
               Open Repository
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
+            <Button
+              variant="outline"
+              size="lg"
               className="px-8 py-6 border-gray-800 bg-gray-900/50 hover:bg-gray-800 text-gray-300 rounded-xl gap-3"
             >
               <Command className="size-5 text-blue-500" />
@@ -134,17 +146,22 @@ export default function HomePage() {
       case 'Status':
       case 'Changes':
         return (
-          <RepositoryView 
-            currentPath={currentPath} 
-            status={status} 
+          <RepositoryView
+            currentPath={currentPath}
+            status={status}
             branch={branch}
             isRepo={isRepo}
             onInit={initRepo}
+            onClone={gitClone}
             onCommit={commit}
             onPush={push}
             onPull={pull}
             isLoading={isLoading}
             currentError={currentError}
+            conflictedFiles={conflictedFiles}
+            onAbortRebase={abortRebase}
+            onContinueRebase={continueRebase}
+            onResolveConflict={resolveConflict}
             onApplyFix={applyFix}
             remoteStatus={remoteStatus}
             onGitHubCreate={createGitHubRepo}
@@ -154,15 +171,31 @@ export default function HomePage() {
             onRemoveCollaborator={removeCollaborator}
             onGetRepoDetails={getRepoDetails}
             onAddTeamRepo={addTeamRepo}
+            githubPat={githubPat}
+            setGithubPat={setGithubPat}
+            deleteGithubPat={deleteGithubPat}
           />
         )
       case 'History':
         return <HistoryView />
       case 'Publish':
         return (
-          <PublishView 
+          <PublishView
             currentPath={currentPath}
+            isRepo={isRepo}
+            remotes={remotes}
+            status={status}
+            remoteStatus={remoteStatus}
+            onInit={initRepo}
+            onAddRemote={addRemote}
+            onCommit={commit}
+            onPull={pull}
+            onPush={push}
             onRefresh={refreshStatus}
+            onSetupAutoUpdate={setupAutoUpdate}
+            onCheckAutoUpdate={checkAutoUpdate}
+            onGetLatestRemoteTag={getLatestRemoteTag}
+            onGetCommitDelta={getCommitDelta}
           />
         )
       case 'Settings':
@@ -177,8 +210,8 @@ export default function HomePage() {
       <Head>
         <title>GitPush GUI</title>
       </Head>
-      <Layout 
-        currentPath={currentPath || ''} 
+      <Layout
+        currentPath={currentPath || ''}
         onSelectFolder={selectFolder}
         terminalOutput={logs}
         onRunCommand={runManualCommand}

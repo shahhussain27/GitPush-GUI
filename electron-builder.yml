@@ -9,6 +9,11 @@ files:
     filter:
       - package.json
       - app
+extraResources:
+  - from: resources
+    filter:
+      - splash.html
+      - logo.png
 publish:
   provider: github
   owner: shahhussain27
