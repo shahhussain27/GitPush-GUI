@@ -10,7 +10,9 @@ import {
   ChevronRight,
   Terminal as TerminalIcon,
   Eraser,
-  FolderPlus
+  FolderPlus,
+  AlertTriangle,
+  Activity
 } from 'lucide-react'
 import { ScrollArea } from "./ui/scroll-area"
 import { Button } from "./ui/button"
@@ -23,9 +25,10 @@ interface SidebarProps {
   onSelectFolder: () => void
   activeTab: string
   onTabChange: (tab: string) => void
+  hasConflicts?: boolean
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTab, onTabChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTab, onTabChange, hasConflicts }) => {
   return (
     <div className="w-64 bg-gray-950 flex flex-col border-r border-gray-800">
       <div className="p-6">
@@ -64,6 +67,20 @@ const Sidebar: React.FC<SidebarProps> = ({ currentPath, onSelectFolder, activeTa
                 active={activeTab === 'Status' || activeTab === 'Changes'} 
                 icon={<LayoutDashboard className="size-4" />} 
                 onClick={() => onTabChange('Status')}
+              />
+              {hasConflicts && (
+                <SidebarItem 
+                  label="Conflicts" 
+                  active={activeTab === 'Conflicts'} 
+                  icon={<AlertTriangle className="size-4 text-amber-500 animate-pulse" />} 
+                  onClick={() => onTabChange('Conflicts')}
+                />
+              )}
+              <SidebarItem 
+                icon={<Activity className="size-4" />} 
+                label="Repository Health" 
+                active={activeTab === 'Repository Health'} 
+                onClick={() => onTabChange('Repository Health')} 
               />
               <SidebarItem 
                 label="History" 
@@ -235,10 +252,11 @@ interface LayoutProps {
   onClearTerminal?: () => void
   activeTab: string
   onTabChange: (tab: string) => void
+  hasConflicts?: boolean
 }
 
 const Layout: React.FC<LayoutProps> = ({ 
-  children, currentPath, onSelectFolder, terminalOutput, onRunCommand, onClearTerminal, activeTab, onTabChange 
+  children, currentPath, onSelectFolder, terminalOutput, onRunCommand, onClearTerminal, activeTab, onTabChange, hasConflicts
 }) => {
   const [isTerminalVisible, setIsTerminalVisible] = React.useState(true)
 
@@ -251,6 +269,7 @@ const Layout: React.FC<LayoutProps> = ({
           onSelectFolder={onSelectFolder} 
           activeTab={activeTab}
           onTabChange={onTabChange}
+          hasConflicts={hasConflicts}
         />
         <main className="flex-1 flex flex-col overflow-hidden relative">
           <ScrollArea className="flex-1 bg-gray-950/50">

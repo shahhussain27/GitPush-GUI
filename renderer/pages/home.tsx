@@ -9,7 +9,11 @@ import Image from 'next/image'
 import { useGit } from '../hooks/useGit'
 import { Button } from "../components/ui/button"
 import { Card, CardContent } from "../components/ui/card"
-import { FolderOpen, Sparkles, Command, Rocket, LayoutDashboard } from 'lucide-react'
+import { FolderOpen, Sparkles, Command, Rocket, LayoutDashboard, FileDown, GitBranch } from 'lucide-react'
+import { cn } from '../lib/utils'
+import GraphTab from '../components/GraphTab'
+import ConflictsTab from '../components/ConflictsTab'
+import HealthAnalyzerTab from '../components/HealthAnalyzerTab'
 
 export default function HomePage() {
   const {
@@ -51,10 +55,15 @@ export default function HomePage() {
     setupAutoUpdate,
     checkAutoUpdate,
     getLatestRemoteTag,
-    getCommitDelta
+    getCommitDelta,
+    analyzeHealth,
+    hasOrigin,
+    getCommits
   } = useGit()
 
   const [activeSidebarTab, setActiveSidebarTab] = useState('Status')
+  const [activeTab, setActiveTab] = useState<'status' | 'history' | 'graph'>('status')
+  const [commits, setCommits] = useState<any[]>([])
 
   useEffect(() => {
     if (currentPath) {
@@ -68,6 +77,47 @@ export default function HomePage() {
       }
     }
   }, [currentPath, refreshStatus, checkRemoteUpdates])
+
+  useEffect(() => {
+    const fetchCommits = async () => {
+      if (currentPath && isRepo && activeTab === 'graph') {
+        const fetchedCommits = await getCommits()
+        setCommits(fetchedCommits)
+      }
+    }
+    fetchCommits()
+  }, [currentPath, isRepo, activeTab, getCommits])
+
+  const handleCommit = async (message: string, files: string[]) => {
+    await commit(message, files)
+    refreshStatus()
+  }
+
+  const handlePush = async () => {
+    await push()
+    refreshStatus()
+  }
+
+  const handlePull = async () => {
+    await pull()
+    refreshStatus()
+  }
+
+  const handleCreateRepo = async (path: string) => {
+    await initRepo()
+    refreshStatus()
+  }
+
+  const handleCloneRepo = async (url: string, path: string) => {
+    await gitClone(url, path)
+    refreshStatus()
+  }
+
+  const handleCreateGitHub = async (name: string, isPrivate: boolean): Promise<{ success: boolean; error?: string }> => {
+    const res = await createGitHubRepo('', name, isPrivate)
+    refreshStatus()
+    return { success: res?.success || false, error: res?.error }
+  }
 
   const renderContent = () => {
     if (!currentPath) {
@@ -153,31 +203,49 @@ export default function HomePage() {
             isRepo={isRepo}
             onInit={initRepo}
             onClone={gitClone}
-            onCommit={commit}
-            onPush={push}
-            onPull={pull}
+            onCommit={(message) => handleCommit(message, [])}
+            onPush={handlePush}
+            onPull={handlePull}
             isLoading={isLoading}
             currentError={currentError}
             conflictedFiles={conflictedFiles}
-            onAbortRebase={abortRebase}
-            onContinueRebase={continueRebase}
             onResolveConflict={resolveConflict}
             onApplyFix={applyFix}
             remoteStatus={remoteStatus}
-            onGitHubCreate={createGitHubRepo}
+            onGitHubCreate={(token, name, isPrivate) => handleCreateGitHub(name, isPrivate)}
             onRemoveRemote={removeRemote}
             onListCollaborators={listCollaborators}
             onAddCollaborator={addCollaborator}
             onRemoveCollaborator={removeCollaborator}
-            onGetRepoDetails={getRepoDetails}
-            onAddTeamRepo={addTeamRepo}
-            githubPat={githubPat}
+            githubPat={null}
             setGithubPat={setGithubPat}
             deleteGithubPat={deleteGithubPat}
+            onRefresh={refreshStatus}
+            hasOrigin={hasOrigin || false}
           />
         )
       case 'History':
-        return <HistoryView />
+        return (
+          <GraphTab
+            currentPath={currentPath}
+            isRepo={isRepo}
+            onRefreshBranch={refreshStatus}
+          />
+        )
+      case 'Conflicts':
+        return (
+          <ConflictsTab
+            conflictedFiles={conflictedFiles}
+            onRefresh={refreshStatus}
+          />
+        )
+      case 'Repository Health':
+        return (
+          <HealthAnalyzerTab 
+            currentPath={currentPath}
+            analyzeHealth={analyzeHealth}
+          />
+        )
       case 'Publish':
         return (
           <PublishView
@@ -218,6 +286,7 @@ export default function HomePage() {
         onClearTerminal={clearLogs}
         activeTab={activeSidebarTab}
         onTabChange={setActiveSidebarTab}
+        hasConflicts={conflictedFiles && conflictedFiles.length > 0}
       >
         {renderContent()}
       </Layout>

@@ -10,6 +10,7 @@ export const useGit = () => {
   const [currentError, setCurrentError] = useState<any | null>(null)
   const [remoteStatus, setRemoteStatus] = useState<{ ahead: number; behind: number; metadata: any | null }>({ ahead: 0, behind: 0, metadata: null })
   const [conflictedFiles, setConflictedFiles] = useState<string[]>([])
+  const [hasOrigin, setHasOrigin] = useState(false)
 
   // Persistent GitHub PAT
   const [githubPat, setGithubPatState] = useState<string>('')
@@ -128,7 +129,7 @@ export const useGit = () => {
     }
   }
 
-  const commit = async (message: string) => {
+  const commit = async (message: string, files?: string[]) => {
     setIsLoading(true)
     setCurrentError(null)
     try {
@@ -155,8 +156,9 @@ export const useGit = () => {
   const refreshRemotes = useCallback(async () => {
     if (!currentPath) return
     try {
-      const r = await window.ipc.invoke('git:remotes')
-      setRemotes(r as string)
+      const r = await window.ipc.invoke('git:remotes') as string
+      setRemotes(r)
+      setHasOrigin(r.includes('origin'))
     } catch (e: any) {
       addLog(`Error fetching remotes: ${e.message}`)
     }
@@ -324,6 +326,15 @@ export const useGit = () => {
   }
 
   return {
+    getCommits: async (limit: number = 500) => {
+      if (!currentPath || !isRepo) return []
+      try {
+        return await window.ipc.invoke('git:get-commit-graph', limit)
+      } catch (e: any) {
+        addLog(`Error fetching commits: ${e.message}`)
+        return []
+      }
+    },
     currentPath,
     isRepo,
     status,
@@ -371,7 +382,8 @@ export const useGit = () => {
     addTeamRepo: async (token: string, org: string, team: string, owner: string, repo: string, permission: string) => {
       return await window.ipc.invoke('github:add-team-repo', { token, org, team, owner, repo, permission });
     },
-    createGitHubRepo: async (token: string, name: string, isPrivate: boolean) => {
+    hasOrigin,
+    createGitHubRepo: async (token: string, name: string, isPrivate: boolean): Promise<{ success: boolean; error?: string; repoInfo?: any }> => {
       setIsLoading(true)
       try {
         addLog(`Creating GitHub repository: ${name}...`)
@@ -438,6 +450,20 @@ export const useGit = () => {
         return res.success ? res.delta : 0
       } catch (e: any) {
         return 0
+      }
+    },
+    analyzeHealth: async (): Promise<{ size: string, largestFiles: { path: string, size: number }[] }> => {
+      setIsLoading(true);
+      try {
+        const size = await window.ipc.invoke('git:repo-size') as string;
+        const largestFiles = await window.ipc.invoke('git:largest-files', 20) as { path: string, size: number }[];
+        
+        return { size, largestFiles };
+      } catch (e: any) {
+        addLog(`Error analyzing repository health: ${e.message}`);
+        return { size: '0 MB', largestFiles: [] };
+      } finally {
+        setIsLoading(false);
       }
     }
   }

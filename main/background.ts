@@ -5,6 +5,7 @@ import { createWindow } from './helpers'
 import { gitService } from './services/gitService'
 import { lfsService } from './services/lfsService'
 import { gitignoreService } from './services/gitignoreService'
+import { fileScannerService } from './services/fileScannerService'
 import { GitHubService } from './services/githubService'
 import { autoUpdater } from 'electron-updater'
 import log from 'electron-log'
@@ -201,6 +202,80 @@ if (isProd) {
 
   ipcMain.handle('git:fetch', async () => {
     return await gitService.fetch()
+  })
+
+  ipcMain.handle('git:branches', async () => {
+    return await gitService.getBranches()
+  })
+
+  ipcMain.handle('git:checkout', async (_event, branchName) => {
+    return await gitService.checkoutBranch(branchName)
+  })
+
+  ipcMain.handle('git:branch-rename', async (_event, oldName, newName) => {
+    return await gitService.renameBranch(oldName, newName)
+  })
+
+  ipcMain.handle('git:set-upstream', async (_event, branchName, remote) => {
+    return await gitService.setUpstream(branchName, remote)
+  })
+
+  ipcMain.handle('git:delete-remote-branch', async (_event, remote, branchName) => {
+    return await gitService.deleteRemoteBranch(remote, branchName)
+  })
+
+  ipcMain.handle('git:scan-files', async () => {
+    const projectPath = gitService.getPath()
+    const changedFiles = await gitService.getChangedFiles()
+    return await fileScannerService.scanFiles(projectPath, changedFiles)
+  })
+
+  ipcMain.handle('git:get-commit-graph', async (_event, limit) => {
+    return await gitService.getCommitGraph(limit)
+  })
+
+  ipcMain.handle('git:get-commit-details', async (_event, hash) => {
+    return await gitService.getCommitDetails(hash)
+  })
+
+  ipcMain.handle('git:cherry-pick', async (_event, hash) => {
+    return await gitService.cherryPick(hash)
+  })
+
+  ipcMain.handle('git:revert', async (_event, hash) => {
+    return await gitService.revertCommit(hash)
+  })
+
+  ipcMain.handle('git:create-branch', async (_event, name, startPoint) => {
+    return await gitService.execute(['branch', name, startPoint])
+  })
+
+  ipcMain.handle('fs:read-file', async (_event, filePath) => {
+    try {
+      const content = await gitService.readFile(filePath)
+      return { success: true, content }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('fs:write-file', async (_event, filePath, content) => {
+    try {
+      await gitService.writeFile(filePath, content)
+      // Automatically stage the resolved file
+      await gitService.execute(['add', filePath])
+      return { success: true }
+    } catch (e: any) {
+      return { success: false, error: e.message }
+    }
+  })
+
+  ipcMain.handle('git:repo-size', async () => {
+    return await gitService.getRepoSize()
+  })
+
+  ipcMain.handle('git:largest-files', async (_event, limit) => {
+    return await gitService.getLargestFiles(limit)
   })
 
   ipcMain.handle('git:execute-command', async (_event, command) => {

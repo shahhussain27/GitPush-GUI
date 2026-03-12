@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import GitHubModal from './GitHubModal'
 import RemoteUpdateModal from './RemoteUpdateModal'
 import CollaborationView from './CollaborationView'
+import BranchManager from './BranchManager'
+import LargeFileDialog, { ScannedFile } from './LargeFileDialog'
 import {
   GitBranch,
   Download,
@@ -32,7 +34,7 @@ interface RepositoryViewProps {
   isRepo: boolean
   onInit: () => void
   onClone?: (url: string, targetDirectory: string) => Promise<boolean>
-  onCommit: (message: string) => void
+  onCommit: (message: string, files?: string[]) => void
   onPush: () => void
   onPull: () => void
   isLoading?: boolean
@@ -57,12 +59,14 @@ interface RepositoryViewProps {
   githubPat?: string
   setGithubPat?: (token: string) => Promise<void>
   deleteGithubPat?: () => Promise<void>
+  onRefresh?: () => void
+  hasOrigin?: boolean
 }
 
 const RepositoryView: React.FC<RepositoryViewProps> = ({
   currentPath, status, branch, isRepo, onInit, onClone, onCommit, onPush, onPull, isLoading, currentError, onApplyFix, onGitHubCreate, onRemoveRemote, remoteStatus,
   conflictedFiles = [], onAbortRebase, onContinueRebase, onResolveConflict,
-  onListCollaborators, onAddCollaborator, onRemoveCollaborator, onGetRepoDetails, onAddTeamRepo, githubPat, setGithubPat, deleteGithubPat
+  onListCollaborators, onAddCollaborator, onRemoveCollaborator, onGetRepoDetails, onAddTeamRepo, githubPat, setGithubPat, deleteGithubPat, onRefresh
 }) => {
   const [activeTab, setActiveTab] = useState<'status' | 'lfs' | 'gitignore' | 'remotes' | 'collaboration'>('status')
   const [commitMessage, setCommitMessage] = useState('')
@@ -77,7 +81,33 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
   const [initMode, setInitMode] = useState<'init' | 'clone'>('init')
   const [cloneUrl, setCloneUrl] = useState('')
 
+  // Large File state
+  const [largeFiles, setLargeFiles] = useState<ScannedFile[]>([])
+  const [isLargeFileDialogOpen, setIsLargeFileDialogOpen] = useState(false)
+  const [scannedAction, setScannedAction] = useState<'commit' | 'push' | null>(null)
+
   const isBehind = (remoteStatus?.behind || 0) > 0
+
+  useEffect(() => {
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer?.files) {
+        const largeDropFiles = Array.from(e.dataTransfer.files).filter(f => f.size > 50 * 1024 * 1024);
+        if (largeDropFiles.length > 0) {
+          alert(`Warning: You dropped ${largeDropFiles.length} files larger than 50MB. Git LFS is recommended for these files:\n${largeDropFiles.map(f => f.name).join(', ')}`);
+        }
+      }
+    };
+    const handleDragOver = (e: DragEvent) => e.preventDefault();
+    
+    document.addEventListener('drop', handleDrop);
+    document.addEventListener('dragover', handleDragOver);
+    
+    return () => {
+      document.removeEventListener('drop', handleDrop);
+      document.removeEventListener('dragover', handleDragOver);
+    }
+  }, []);
 
   useEffect(() => {
     if (isRepo) {
@@ -125,6 +155,67 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
   const generateGitignore = async (type: string) => {
     await window.ipc.invoke('gitignore:generate', currentPath, type)
     await loadGitignore()
+  }
+
+  const handlePreCheck = async (action: 'commit' | 'push') => {
+    // For push, check detached HEAD
+    if (action === 'push') {
+       const isDetached = branch === 'HEAD' || branch === 'No branch';
+       if (isDetached) {
+         alert('Cannot push from a detached HEAD state. Please switch to a branch.');
+         return;
+       }
+    }
+
+    try {
+      const files = await window.ipc.invoke('git:scan-files') as ScannedFile[];
+      if (files && files.length > 0) {
+        setLargeFiles(files);
+        setScannedAction(action);
+        setIsLargeFileDialogOpen(true);
+      } else {
+        // Proceed directly
+        if (action === 'commit') {
+           onCommit(commitMessage);
+           setCommitMessage('');
+        } else {
+           onPush();
+        }
+      }
+    } catch (e) {
+      console.error('Scan failed', e);
+      if (action === 'commit') {
+        onCommit(commitMessage);
+        setCommitMessage('');
+      } else {
+        onPush();
+      }
+    }
+  }
+
+  const handleTrackLFS = async (pattern: string) => {
+    await window.ipc.invoke('lfs:track', pattern);
+    alert(`Tracking ${pattern} with Git LFS. Please remember to commit .gitattributes.`);
+    handlePreCheck(scannedAction!); 
+  }
+
+  const handleIgnore = async (filePath: string) => {
+    let content = await window.ipc.invoke('gitignore:read', currentPath) as string;
+    content += `\n${filePath}`;
+    await window.ipc.invoke('gitignore:save', currentPath, content);
+    alert(`Added ${filePath} to .gitignore`);
+    handlePreCheck(scannedAction!); 
+  }
+
+  const handleProceedAnyway = () => {
+    setIsLargeFileDialogOpen(false);
+    if (scannedAction === 'commit') {
+       onCommit(commitMessage);
+       setCommitMessage('');
+    } else if (scannedAction === 'push') {
+       onPush();
+    }
+    setScannedAction(null);
   }
 
   if (!isRepo) {
@@ -338,22 +429,10 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
 
       {/* Header Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex items-center justify-between bg-gray-900/40 p-5 rounded-2xl border border-gray-800/50 backdrop-blur-xl group hover:border-blue-500/30 transition-all">
-          <div className="flex items-center gap-4">
-            <div className="bg-blue-500/10 p-4 rounded-2xl border border-blue-500/20 group-hover:scale-110 transition-transform">
-              <GitBranch className="size-6 text-blue-400" />
-            </div>
-            <div>
-              <h2 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-0.5">Active Development Branch</h2>
-              <div className="flex items-center gap-2">
-                <p className="text-xl font-mono font-black text-white">
-                  {branch || 'master'}
-                </p>
-                <Badge variant="outline" className="text-[9px] border-blue-500/30 text-blue-400 font-black px-1.5 h-4">LOCAL</Badge>
-              </div>
-            </div>
-          </div>
-        </div>
+        <BranchManager 
+          currentBranch={branch} 
+          onBranchChange={() => onRefresh?.()} 
+        />
 
         <div className="flex gap-3">
           <Button
@@ -373,7 +452,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
           </Button>
           <Button
             disabled={isBehind || !hasOrigin}
-            onClick={onPush}
+            onClick={() => handlePreCheck('push')}
             className={cn(
               "flex-1 h-full rounded-2xl text-sm font-black gap-2 shadow-xl transition-all",
               (isBehind || !hasOrigin)
@@ -450,10 +529,7 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
               <div className="space-y-4">
                 <Button
                   disabled={!commitMessage}
-                  onClick={() => {
-                    onCommit(commitMessage)
-                    setCommitMessage('')
-                  }}
+                  onClick={() => handlePreCheck('commit')}
                   className={cn(
                     "w-full h-12 rounded-2xl font-black transition-all gap-2 text-sm shadow-lg",
                     commitMessage
@@ -692,6 +768,16 @@ const RepositoryView: React.FC<RepositoryViewProps> = ({
         onClose={() => setIsGitHubModalOpen(false)}
         folderName={currentPath.split(/[\\/]/).pop() || ''}
         onCreate={onGitHubCreate || (async () => ({ success: false, error: 'GitHub module not connected' }))}
+      />
+
+      <LargeFileDialog 
+        isOpen={isLargeFileDialogOpen}
+        onClose={() => setIsLargeFileDialogOpen(false)}
+        files={largeFiles}
+        onTrackLFS={handleTrackLFS}
+        onIgnore={handleIgnore}
+        onProceedAnyway={handleProceedAnyway}
+        isPush={scannedAction === 'push'}
       />
 
       <RemoteUpdateModal

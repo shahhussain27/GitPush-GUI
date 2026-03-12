@@ -8,6 +8,15 @@ export interface ExecuteResult {
   error?: GitError | null;
 }
 
+export interface CommitNodeRaw {
+  hash: string;
+  parents: string[];
+  author: string;
+  date: string;
+  message: string;
+  refs: string;
+}
+
 class GitService {
   private currentPath: string | null = null;
 
@@ -237,6 +246,166 @@ class GitService {
       return { hash, author, message };
     }
     return null;
+  }
+
+  async getBranches(): Promise<{ name: string; isRemote: boolean; isCurrent: boolean }[]> {
+    const result = await this.execute(['branch', '-a']);
+    if (result.stdout) {
+      return result.stdout.split('\n').filter(l => l.trim()).map(line => {
+        const isCurrent = line.startsWith('*');
+        const trimmed = line.replace(/^\*\s*/, '').trim();
+        const isRemote = trimmed.startsWith('remotes/');
+        const name = isRemote ? trimmed.replace('remotes/', '') : trimmed;
+        return { name, isRemote, isCurrent };
+      });
+    }
+    return [];
+  }
+
+  async checkoutBranch(branchName: string): Promise<ExecuteResult> {
+    const isRemote = branchName.includes('/');
+    if (isRemote) {
+      // checkout remote tracking branch
+      return await this.execute(['checkout', '-t', branchName]);
+    }
+    return await this.execute(['checkout', branchName]);
+  }
+
+  async renameBranch(oldName: string, newName: string): Promise<ExecuteResult> {
+    return await this.execute(['branch', '-m', oldName, newName]);
+  }
+
+  async setUpstream(branchName: string, remote: string = 'origin'): Promise<ExecuteResult> {
+    return await this.execute(['branch', `--set-upstream-to=${remote}/${branchName}`]);
+  }
+
+  async deleteRemoteBranch(remote: string, branchName: string): Promise<ExecuteResult> {
+    return await this.execute(['push', remote, '--delete', branchName]);
+  }
+
+  async getChangedFiles(): Promise<string[]> {
+    // -u ensures untracked files are shown
+    const result = await this.execute(['status', '--porcelain', '-u']);
+    if (result.stdout) {
+      return result.stdout.split('\n')
+        .filter(line => line.trim())
+        .map(line => line.substring(3).trim());
+    }
+    return [];
+  }
+
+  async getCommitGraph(limit: number = 500): Promise<CommitNodeRaw[]> {
+    // Custom format: hash|parent_hashes|author_name|author_date_iso|message|refs
+    // %H = commit hash, %P = parent hashes, %an = author name, %aI = strict ISO 8601 auth date, %s = subject, %D = ref names
+    const format = '--pretty=format:%H|%P|%an|%aI|%s|%D';
+    const result = await this.execute(['log', '--all', '--date-order', format, '-n', limit.toString()]);
+    
+    if (result.stdout) {
+      return result.stdout.split('\n').filter(line => line.trim()).map(line => {
+        const [hash, parentsStr, author, date, message, refsStr] = line.split('|');
+        const parents = parentsStr ? parentsStr.split(' ').filter(Boolean) : [];
+        const refs = refsStr ? refsStr.trim() : '';
+        return { hash, parents, author, date, message, refs };
+      });
+    }
+    return [];
+  }
+
+  async getCommitDetails(hash: string): Promise<{ files: { action: string, path: string }[], body: string }> {
+    // Get full commit body
+    let body = '';
+    const bodyResult = await this.execute(['show', '-s', '--format=%b', hash]);
+    if (bodyResult.stdout) {
+      body = bodyResult.stdout.trim();
+    }
+
+    // Get files changed
+    const filesResult = await this.execute(['diff-tree', '--no-commit-id', '--name-status', '-r', hash]);
+    const files: { action: string, path: string }[] = [];
+    if (filesResult.stdout) {
+      filesResult.stdout.split('\n').filter(line => line.trim()).forEach(line => {
+        const parts = line.split('\t');
+        if (parts.length >= 2) {
+          files.push({ action: parts[0], path: parts[1] });
+        }
+      });
+    }
+
+    return { files, body };
+  }
+
+  async cherryPick(hash: string): Promise<ExecuteResult> {
+    return await this.execute(['cherry-pick', hash]);
+  }
+
+  async revertCommit(hash: string): Promise<ExecuteResult> {
+    return await this.execute(['revert', '--no-edit', hash]);
+  }
+
+  async readFile(filePath: string): Promise<string> {
+    if (!this.currentPath) throw new Error('No repository selected');
+    const fullPath = require('path').join(this.currentPath, filePath);
+    return await require('fs').promises.readFile(fullPath, 'utf-8');
+  }
+
+  async writeFile(filePath: string, content: string): Promise<void> {
+    if (!this.currentPath) throw new Error('No repository selected');
+    const fullPath = require('path').join(this.currentPath, filePath);
+    await require('fs').promises.writeFile(fullPath, content, 'utf-8');
+  }
+
+  async getRepoSize(): Promise<string> {
+    if (!this.currentPath) throw new Error('No repository selected');
+    const result = await this.execute(['count-objects', '-v']);
+    if (result.stdout) {
+      // Look for size-pack: (in KB)
+      const packMatch = result.stdout.match(/size-pack:\s*(\d+)/);
+      // Look for size: (loose objects in KB)
+      const looseMatch = result.stdout.match(/size:\s*(\d+)/);
+      
+      let totalKB = 0;
+      if (packMatch) totalKB += parseInt(packMatch[1], 10);
+      if (looseMatch) totalKB += parseInt(looseMatch[1], 10);
+
+      // Convert to MB
+      const sizeMB = (totalKB / 1024).toFixed(2);
+      return `${sizeMB} MB`;
+    }
+    return '0 MB';
+  }
+
+  async getLargestFiles(limit: number = 20): Promise<{ path: string, size: number }[]> {
+    if (!this.currentPath) throw new Error('No repository selected');
+    
+    // Command to get all objects, sort by size, and grab top `limit`
+    // This is a known pipeline in git: verify-pack for sizes
+    const script = `git rev-list --objects --all | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' | awk '$1 == "blob" {print $3 "\t" $4}' | sort -nr | head -n ${limit}`;
+    
+    // run the script inside a shell because of the pipe
+    return new Promise((resolve, reject) => {
+      const exec = require('child_process').exec;
+      exec(script, { cwd: this.currentPath, maxBuffer: 1024 * 1024 * 50 }, (error: any, stdout: string) => {
+        if (error) {
+          resolve([]);
+          return;
+        }
+
+        const files: { path: string, size: number }[] = [];
+        const lines = stdout.split('\n');
+        
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const [sizeStr, ...pathParts] = line.split('\t');
+          const path = pathParts.join('\t');
+          files.push({
+            size: parseInt(sizeStr, 10),
+            path
+          });
+        }
+        
+        resolve(files);
+      });
+    });
   }
 }
 
